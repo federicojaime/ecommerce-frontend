@@ -19,13 +19,57 @@ export const apiService = {
   },
 
   createProduct: async (productData) => {
-    const response = await api.post('/admin/products', productData)
-    return response.data
+    console.log('Creating product with data:', productData)
+    
+    // Detectar si es FormData (con imagen) o JSON normal
+    const isFormData = productData instanceof FormData
+    
+    if (isFormData) {
+      console.log('Sending FormData with image')
+      // Para FormData, no establecer Content-Type manualmente, deja que axios lo maneje
+      const response = await api.post('/admin/products', productData, {
+        headers: {
+          // No establecer Content-Type para FormData, axios lo maneja automáticamente
+        }
+      })
+      return response.data
+    } else {
+      console.log('Sending JSON data')
+      // Para JSON, establecer Content-Type explícitamente
+      const response = await api.post('/admin/products', productData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    }
   },
 
   updateProduct: async (id, productData) => {
-    const response = await api.put(`/admin/products/${id}`, productData)
-    return response.data
+    console.log('Updating product', id, 'with data:', productData)
+    
+    // Detectar si es FormData (con imagen) o JSON normal
+    const isFormData = productData instanceof FormData
+    
+    if (isFormData) {
+      console.log('Sending FormData for update')
+      // Para FormData, no establecer Content-Type manualmente
+      const response = await api.put(`/admin/products/${id}`, productData, {
+        headers: {
+          // No establecer Content-Type para FormData
+        }
+      })
+      return response.data
+    } else {
+      console.log('Sending JSON for update')
+      // Para JSON, establecer Content-Type explícitamente
+      const response = await api.put(`/admin/products/${id}`, productData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    }
   },
 
   deleteProduct: async (id) => {
@@ -35,17 +79,30 @@ export const apiService = {
 
   // Categories
   getCategories: async () => {
+    const response = await api.get('/categories') // Usar endpoint público para obtener categorías
+    return response.data
+  },
+
+  getAdminCategories: async () => {
     const response = await api.get('/admin/categories')
     return response.data
   },
 
   createCategory: async (categoryData) => {
-    const response = await api.post('/admin/categories', categoryData)
+    const response = await api.post('/admin/categories', categoryData, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
     return response.data
   },
 
   updateCategory: async (id, categoryData) => {
-    const response = await api.put(`/admin/categories/${id}`, categoryData)
+    const response = await api.put(`/admin/categories/${id}`, categoryData, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
     return response.data
   },
 
@@ -66,12 +123,20 @@ export const apiService = {
   },
 
   createOrder: async (orderData) => {
-    const response = await api.post('/admin/orders', orderData)
+    const response = await api.post('/admin/orders', orderData, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
     return response.data
   },
 
   updateOrderStatus: async (id, status) => {
-    const response = await api.put(`/admin/orders/${id}/status`, { status })
+    const response = await api.put(`/admin/orders/${id}/status`, { status }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
     return response.data
   },
 
@@ -92,12 +157,20 @@ export const apiService = {
   },
 
   createUser: async (userData) => {
-    const response = await api.post('/admin/users', userData)
+    const response = await api.post('/admin/users', userData, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
     return response.data
   },
 
   updateUser: async (id, userData) => {
-    const response = await api.put(`/admin/users/${id}`, userData)
+    const response = await api.put(`/admin/users/${id}`, userData, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
     return response.data
   },
 

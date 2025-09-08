@@ -1,6 +1,6 @@
 ﻿import axios from 'axios'
 
-const API_URL = 'http://localhost:8000/api'
+const API_URL = 'http://localhost/ecommerce-api/public/api'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -28,12 +28,12 @@ api.interceptors.response.use(
   },
   (error) => {
     console.error('API Error:', error)
-    
+
     // Manejar errores de CORS
     if (error.code === 'ERR_NETWORK') {
       console.error('Error de red o CORS. Verifica que el servidor API esté ejecutándose.')
     }
-    
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       window.location.href = '/login'
@@ -47,11 +47,11 @@ export const authService = {
     try {
       const response = await api.post('/auth/login', { email, password })
       console.log('Login response:', response.data)
-      
+
       if (!response.data.user || !response.data.token) {
         throw new Error('Respuesta de login inválida')
       }
-      
+
       return {
         token: response.data.token,
         user: response.data.user

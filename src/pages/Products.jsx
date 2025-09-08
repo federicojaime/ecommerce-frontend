@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { apiService } from '../services/apiService'
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
 const Products = () => {
@@ -16,6 +16,8 @@ const Products = () => {
   })
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
+  const [selectedImage, setSelectedImage] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -27,8 +29,6 @@ const Products = () => {
     min_stock: '',
     status: 'active',
     featured: false,
-    weight: '',
-    dimensions: '',
     category_id: ''
   })
 
@@ -70,14 +70,52 @@ const Products = () => {
     setCurrentPage(1)
   }
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('La imagen debe ser menor a 10MB')
+        return
+      }
+      
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        toast.error('Solo se permiten imágenes JPG, PNG o WEBP')
+        return
+      }
+
+      setSelectedImage(file)
+      
+      // Crear preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setImagePreview(e.target.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      const formDataToSend = new FormData()
+      
+      // Agregar todos los campos del producto
+      Object.keys(formData).forEach(key => {
+        if (formData[key] !== '') {
+          formDataToSend.append(key, formData[key])
+        }
+      })
+      
+      // Agregar imagen si existe
+      if (selectedImage) {
+        formDataToSend.append('image', selectedImage)
+      }
+
       if (editingProduct) {
-        await apiService.updateProduct(editingProduct.id, formData)
+        await apiService.updateProduct(editingProduct.id, formDataToSend)
         toast.success('Producto actualizado correctamente')
       } else {
-        await apiService.createProduct(formData)
+        await apiService.createProduct(formDataToSend)
         toast.success('Producto creado correctamente')
       }
       setShowModal(false)
@@ -86,7 +124,7 @@ const Products = () => {
       fetchProducts()
     } catch (error) {
       console.error('Error saving product:', error)
-      toast.error(error.response?.data?.error || 'Error al guardar producto')
+      toast.error('Error al guardar producto')
     }
   }
 
@@ -103,10 +141,11 @@ const Products = () => {
       min_stock: product.min_stock || '',
       status: product.status || 'active',
       featured: product.featured || false,
-      weight: product.weight || '',
-      dimensions: product.dimensions || '',
       category_id: product.category_id || ''
     })
+    // Reset image states
+    setSelectedImage(null)
+    setImagePreview(null)
     setShowModal(true)
   }
 
@@ -135,10 +174,10 @@ const Products = () => {
       min_stock: '',
       status: 'active',
       featured: false,
-      weight: '',
-      dimensions: '',
       category_id: ''
     })
+    setSelectedImage(null)
+    setImagePreview(null)
   }
 
   const openCreateModal = () => {
@@ -147,51 +186,74 @@ const Products = () => {
     setShowModal(true)
   }
 
+  const renderProductImage = (product) => {
+    if (product.primary_image) {
+      return (
+        <img
+          src={`http://localhost:8000/uploads/${product.primary_image}`}
+          alt={product.name}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.style.display = 'none'
+            e.target.nextElementSibling.style.display = 'flex'
+          }}
+        />
+      )
+    }
+    return null
+  }
+
+  const renderImagePlaceholder = (size = 'w-12 h-12') => (
+    <div className={`${size} bg-slate-100 rounded-xl flex items-center justify-center text-slate-400`}>
+      <PhotoIcon className="w-6 h-6" />
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-amber-400"></div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 lg:space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Productos</h1>
-          <p className="text-gray-600 mt-1">Gestiona tu inventario de productos</p>
+          <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-2">Productos</h1>
+          <p className="text-slate-600 text-lg">Gestiona tu inventario de productos</p>
         </div>
-        <div className="flex space-x-3">
-          <button className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors duration-200">
-            Exportar data
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-4 lg:px-6 py-2 lg:py-3 rounded-xl font-semibold transition-all duration-200">
+            Exportar
           </button>
           <button 
             onClick={openCreateModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center transition-colors duration-200"
+            className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 px-4 lg:px-6 py-2 lg:py-3 rounded-xl font-semibold flex items-center justify-center transition-all duration-200 shadow-lg"
           >
             <PlusIcon className="w-5 h-5 mr-2" />
-            Agregar producto
+            Agregar Producto
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 lg:p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar productos..."
-              className="pl-10 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="pl-10 block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all duration-200"
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
             />
           </div>
           <select
-            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all duration-200"
             value={filters.category}
             onChange={(e) => handleFilterChange('category', e.target.value)}
           >
@@ -201,7 +263,7 @@ const Products = () => {
             ))}
           </select>
           <select
-            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all duration-200"
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
           >
@@ -215,86 +277,167 @@ const Products = () => {
               setFilters({ search: '', category: '', status: '' })
               setCurrentPage(1)
             }}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+            className="px-4 py-3 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors duration-200"
           >
-            Limpiar filtros
+            Limpiar
           </button>
         </div>
       </div>
 
-      {/* Products Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+      {/* Products Grid/Table */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        {/* Mobile Cards */}
+        <div className="lg:hidden divide-y divide-slate-200">
+          {products.map((product) => (
+            <div key={product.id} className="p-4 hover:bg-slate-50 transition-colors">
+              <div className="flex gap-4 mb-3">
+                {/* Product Image */}
+                <div className="flex-shrink-0">
+                  <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden">
+                    {renderProductImage(product)}
+                    <div className="w-full h-full flex items-center justify-center text-slate-400" style={{ display: product.primary_image ? 'none' : 'flex' }}>
+                      <PhotoIcon className="w-6 h-6" />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Product Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-slate-900 truncate">{product.name}</h3>
+                      <p className="text-sm text-slate-500 mt-1">{product.sku}</p>
+                    </div>
+                    <div className="flex space-x-2 ml-4">
+                      <button 
+                        onClick={() => handleEdit(product)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(product.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-slate-500">Precio:</span>
+                  <p className="font-semibold text-slate-900">
+                    ${parseFloat(product.price || 0).toFixed(2)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-slate-500">Stock:</span>
+                  <p className="font-semibold text-slate-900">{product.stock || 0}</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center mt-3">
+                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                  product.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                  product.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                  'bg-amber-100 text-amber-800'
+                }`}>
+                  {product.status === 'active' ? 'Disponible' :
+                   product.status === 'inactive' ? 'Agotado' : 'En revisión'}
+                </span>
+                <span className="text-sm text-slate-500">{product.category_name || '-'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Table */}
+        <div className="hidden lg:block overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Producto</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Estado</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Categoría</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Precio</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Stock</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">SKU</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase">Acciones</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-200">
               {products.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                      {product.featured && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
-                          Destacado
-                        </span>
-                      )}
+                <tr key={product.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      {/* Product Image */}
+                      <div className="flex-shrink-0 mr-4">
+                        <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden">
+                          {renderProductImage(product)}
+                          <div className="w-full h-full flex items-center justify-center text-slate-400" style={{ display: product.primary_image ? 'none' : 'flex' }}>
+                            <PhotoIcon className="w-5 h-5" />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Product Info */}
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">{product.name}</div>
+                        {product.featured && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 mt-1">
+                            Destacado
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      product.status === 'active' ? 'bg-green-100 text-green-800' :
+                  <td className="px-6 py-4">
+                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                      product.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
                       product.status === 'inactive' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
+                      'bg-amber-100 text-amber-800'
                     }`}>
                       {product.status === 'active' ? 'Disponible' :
                        product.status === 'inactive' ? 'Agotado' : 'En revisión'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-slate-600">
                     {product.category_name || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-semibold text-slate-900">
                       ${parseFloat(product.price || 0).toFixed(2)}
                       {product.sale_price && (
-                        <div className="text-xs text-green-600">
+                        <div className="text-xs text-emerald-600">
                           Oferta: ${parseFloat(product.sale_price).toFixed(2)}
                         </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{product.stock || 0}</div>
-                    {product.min_stock && product.stock <= product.min_stock && (
-                      <div className="text-xs text-red-600">Stock bajo</div>
-                    )}
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-semibold text-slate-900">{product.stock || 0}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-slate-500">
                     {product.sku}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={() => handleEdit(product)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(product.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end space-x-2">
+                      <button 
+                        onClick={() => handleEdit(product)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(product.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -304,32 +447,32 @@ const Products = () => {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-slate-200 sm:px-6">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
               >
                 Anterior
               </button>
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
               >
                 Siguiente
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm text-gray-700">
-                  Página <span className="font-medium">{currentPage}</span> de{' '}
-                  <span className="font-medium">{totalPages}</span>
+                <p className="text-sm text-slate-700">
+                  Página <span className="font-bold">{currentPage}</span> de{' '}
+                  <span className="font-bold">{totalPages}</span>
                 </p>
               </div>
               <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                <nav className="relative z-0 inline-flex rounded-xl shadow-sm -space-x-px">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     const page = i + Math.max(1, currentPage - 2)
                     if (page > totalPages) return null
@@ -337,11 +480,11 @@ const Products = () => {
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-semibold ${
                           currentPage === page
-                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                        } ${i === 0 ? 'rounded-l-md' : ''} ${i === Math.min(5, totalPages) - 1 ? 'rounded-r-md' : ''}`}
+                            ? 'z-10 bg-amber-50 border-amber-500 text-amber-600'
+                            : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
+                        } ${i === 0 ? 'rounded-l-xl' : ''} ${i === Math.min(5, totalPages) - 1 ? 'rounded-r-xl' : ''}`}
                       >
                         {page}
                       </button>
@@ -354,79 +497,142 @@ const Products = () => {
         )}
       </div>
 
+      {/* Empty State */}
+      {products.length === 0 && !loading && (
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay productos</h3>
+          <p className="text-slate-600 mb-6">Comienza agregando tu primer producto</p>
+          <button 
+            onClick={openCreateModal}
+            className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 px-6 py-3 rounded-xl font-semibold"
+          >
+            Agregar Primer Producto
+          </button>
+        </div>
+      )}
+
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 lg:p-8">
+              <h3 className="text-xl font-bold text-slate-900 mb-6">
                 {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
               </h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Image Upload */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Imagen del producto</label>
+                  
+                  {/* Image Preview */}
+                  {(imagePreview || (editingProduct && editingProduct.primary_image)) && (
+                    <div className="mb-4">
+                      <div className="relative inline-block">
+                        <img
+                          src={imagePreview || `http://localhost:8000/uploads/${editingProduct.primary_image}`}
+                          alt="Preview"
+                          className="w-32 h-32 object-cover rounded-xl border border-slate-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setImagePreview(null)
+                            setSelectedImage(null)
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Upload Area */}
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-amber-400 transition-colors duration-200">
+                    <PhotoIcon className="mx-auto h-12 w-12 text-slate-400" />
+                    <div className="mt-4">
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        <span className="mt-2 block text-sm font-medium text-slate-600">
+                          {selectedImage ? 'Cambiar imagen' : 'Haga clic para subir una imagen'}
+                        </span>
+                        <input
+                          id="file-upload"
+                          name="file-upload"
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={handleImageChange}
+                        />
+                      </label>
+                      <p className="text-xs text-slate-500 mt-1">PNG, JPG, WEBP hasta 10MB</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Nombre</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Nombre *</label>
                     <input
                       type="text"
                       required
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">SKU</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">SKU *</label>
                     <input
                       type="text"
                       required
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                       value={formData.sku}
                       onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Precio</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Precio *</label>
                     <input
                       type="number"
                       step="0.01"
                       required
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                       value={formData.price}
                       onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Precio de oferta</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Precio de oferta</label>
                     <input
                       type="number"
                       step="0.01"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                       value={formData.sale_price}
                       onChange={(e) => setFormData(prev => ({ ...prev, sale_price: e.target.value }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Stock</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Stock</label>
                     <input
                       type="number"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                       value={formData.stock}
                       onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Stock mínimo</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Stock mínimo</label>
                     <input
                       type="number"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                       value={formData.min_stock}
                       onChange={(e) => setFormData(prev => ({ ...prev, min_stock: e.target.value }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Categoría</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Categoría</label>
                     <select
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                       value={formData.category_id}
                       onChange={(e) => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
                     >
@@ -437,9 +643,9 @@ const Products = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Estado</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Estado</label>
                     <select
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                       value={formData.status}
                       onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
                     >
@@ -451,20 +657,20 @@ const Products = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Descripción corta</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Descripción corta</label>
                   <input
                     type="text"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                     value={formData.short_description}
                     onChange={(e) => setFormData(prev => ({ ...prev, short_description: e.target.value }))}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Descripción</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Descripción</label>
                   <textarea
-                    rows={3}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    rows={4}
+                    className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   />
@@ -473,24 +679,24 @@ const Products = () => {
                 <div className="flex items-center">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 rounded"
                     checked={formData.featured}
                     onChange={(e) => setFormData(prev => ({ ...prev, featured: e.target.checked }))}
                   />
-                  <label className="ml-2 block text-sm text-gray-700">Producto destacado</label>
+                  <label className="ml-3 block text-sm font-semibold text-slate-700">Producto destacado</label>
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4">
+                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="px-6 py-3 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-blue-700"
+                    className="px-6 py-3 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 border border-transparent rounded-xl text-sm font-semibold text-slate-900 shadow-lg"
                   >
                     {editingProduct ? 'Actualizar' : 'Crear'}
                   </button>
