@@ -10,7 +10,6 @@ export const apiService = {
   // Products
   getProducts: async (params = {}) => {
     console.log('Getting products with params:', params)
-    console.log('Token from localStorage:', localStorage.getItem('token'))
     
     try {
       const response = await api.get('/admin/products', { params })
@@ -29,41 +28,36 @@ export const apiService = {
 
   createProduct: async (productData) => {
     console.log('Creating product with data:', productData)
-    console.log('Token being sent:', localStorage.getItem('token'))
-    
-    // Detectar si es FormData (con imagen) o JSON normal
-    const isFormData = productData instanceof FormData
-    
-    // Log FormData contents
-    if (isFormData) {
-      console.log('FormData contents:')
-      for (let [key, value] of productData.entries()) {
-        console.log(key, ':', value)
-      }
-    }
     
     try {
-      if (isFormData) {
-        console.log('Sending FormData with image')
-        // Para FormData, no establecer Content-Type manualmente, deja que axios lo maneje
-        const response = await api.post('/admin/products', productData, {
-          headers: {
-            // No establecer Content-Type para FormData, axios lo maneja automáticamente
-          }
-        })
-        console.log('FormData response:', response.data)
-        return response.data
+      // Siempre enviar como FormData para manejar archivos correctamente
+      let formData = new FormData()
+      
+      if (productData instanceof FormData) {
+        // Si ya es FormData, usarlo directamente
+        formData = productData
       } else {
-        console.log('Sending JSON data')
-        // Para JSON, establecer Content-Type explícitamente
-        const response = await api.post('/admin/products', productData, {
-          headers: {
-            'Content-Type': 'application/json'
+        // Si es un objeto, convertir a FormData
+        Object.keys(productData).forEach(key => {
+          if (productData[key] !== '' && productData[key] !== null && productData[key] !== undefined) {
+            formData.append(key, productData[key])
           }
         })
-        console.log('JSON response:', response.data)
-        return response.data
       }
+
+      // Log FormData contents para debugging
+      console.log('FormData contents:')
+      for (let [key, value] of formData.entries()) {
+        console.log(key, ':', value instanceof File ? `File: ${value.name}` : value)
+      }
+      
+      const response = await api.post('/admin/products', formData, {
+        // NO establecer Content-Type - dejar que axios lo maneje
+        timeout: 30000,
+      })
+      
+      console.log('Create product response:', response.data)
+      return response.data
     } catch (error) {
       console.error('Error in createProduct:', error.response?.data || error.message)
       console.error('Full error:', error)
@@ -71,32 +65,38 @@ export const apiService = {
     }
   },
 
+  // USAR POST PARA UPDATES CON ARCHIVOS
   updateProduct: async (id, productData) => {
     console.log('Updating product', id, 'with data:', productData)
     
-    // Detectar si es FormData (con imagen) o JSON normal
-    const isFormData = productData instanceof FormData
-    
     try {
-      if (isFormData) {
-        console.log('Sending FormData for update')
-        // Para FormData, no establecer Content-Type manualmente
-        const response = await api.put(`/admin/products/${id}`, productData, {
-          headers: {
-            // No establecer Content-Type para FormData
-          }
-        })
-        return response.data
+      // Siempre enviar como FormData para manejar archivos correctamente
+      let formData = new FormData()
+      
+      if (productData instanceof FormData) {
+        // Si ya es FormData, usarlo directamente
+        formData = productData
       } else {
-        console.log('Sending JSON for update')
-        // Para JSON, establecer Content-Type explícitamente
-        const response = await api.put(`/admin/products/${id}`, productData, {
-          headers: {
-            'Content-Type': 'application/json'
+        // Si es un objeto, convertir a FormData
+        Object.keys(productData).forEach(key => {
+          if (productData[key] !== '' && productData[key] !== null && productData[key] !== undefined) {
+            formData.append(key, productData[key])
           }
         })
-        return response.data
       }
+
+      // Log FormData contents para debugging
+      console.log('Update FormData contents:')
+      for (let [key, value] of formData.entries()) {
+        console.log(key, ':', value instanceof File ? `File: ${value.name}` : value)
+      }
+
+      // CAMBIO CLAVE: USAR POST EN LUGAR DE PUT PARA ARCHIVOS
+      const response = await api.post(`/admin/products/${id}`, formData, {
+        timeout: 30000,
+      })
+      
+      return response.data
     } catch (error) {
       console.error('Error in updateProduct:', error.response?.data || error.message)
       throw error
@@ -110,7 +110,7 @@ export const apiService = {
 
   // Categories
   getCategories: async () => {
-    const response = await api.get('/categories') // Usar endpoint público para obtener categorías
+    const response = await api.get('/categories')
     return response.data
   },
 
