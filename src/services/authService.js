@@ -1,5 +1,6 @@
 ﻿import axios from 'axios'
 
+// CAMBIO: Usar puerto 80 para XAMPP en lugar de 8000
 const API_URL = 'http://localhost/ecommerce-api/public/api'
 
 const api = axios.create({
@@ -7,7 +8,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: false, // Cambiado a false para evitar problemas de CORS
+  withCredentials: false,
 })
 
 api.interceptors.request.use((config) => {

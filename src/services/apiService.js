@@ -9,8 +9,17 @@ export const apiService = {
 
   // Products
   getProducts: async (params = {}) => {
-    const response = await api.get('/admin/products', { params })
-    return response.data
+    console.log('Getting products with params:', params)
+    console.log('Token from localStorage:', localStorage.getItem('token'))
+    
+    try {
+      const response = await api.get('/admin/products', { params })
+      console.log('Products response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error in getProducts:', error.response?.data || error.message)
+      throw error
+    }
   },
 
   getProduct: async (id) => {
@@ -20,28 +29,45 @@ export const apiService = {
 
   createProduct: async (productData) => {
     console.log('Creating product with data:', productData)
+    console.log('Token being sent:', localStorage.getItem('token'))
     
     // Detectar si es FormData (con imagen) o JSON normal
     const isFormData = productData instanceof FormData
     
+    // Log FormData contents
     if (isFormData) {
-      console.log('Sending FormData with image')
-      // Para FormData, no establecer Content-Type manualmente, deja que axios lo maneje
-      const response = await api.post('/admin/products', productData, {
-        headers: {
-          // No establecer Content-Type para FormData, axios lo maneja automáticamente
-        }
-      })
-      return response.data
-    } else {
-      console.log('Sending JSON data')
-      // Para JSON, establecer Content-Type explícitamente
-      const response = await api.post('/admin/products', productData, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      return response.data
+      console.log('FormData contents:')
+      for (let [key, value] of productData.entries()) {
+        console.log(key, ':', value)
+      }
+    }
+    
+    try {
+      if (isFormData) {
+        console.log('Sending FormData with image')
+        // Para FormData, no establecer Content-Type manualmente, deja que axios lo maneje
+        const response = await api.post('/admin/products', productData, {
+          headers: {
+            // No establecer Content-Type para FormData, axios lo maneja automáticamente
+          }
+        })
+        console.log('FormData response:', response.data)
+        return response.data
+      } else {
+        console.log('Sending JSON data')
+        // Para JSON, establecer Content-Type explícitamente
+        const response = await api.post('/admin/products', productData, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        console.log('JSON response:', response.data)
+        return response.data
+      }
+    } catch (error) {
+      console.error('Error in createProduct:', error.response?.data || error.message)
+      console.error('Full error:', error)
+      throw error
     }
   },
 
@@ -51,24 +77,29 @@ export const apiService = {
     // Detectar si es FormData (con imagen) o JSON normal
     const isFormData = productData instanceof FormData
     
-    if (isFormData) {
-      console.log('Sending FormData for update')
-      // Para FormData, no establecer Content-Type manualmente
-      const response = await api.put(`/admin/products/${id}`, productData, {
-        headers: {
-          // No establecer Content-Type para FormData
-        }
-      })
-      return response.data
-    } else {
-      console.log('Sending JSON for update')
-      // Para JSON, establecer Content-Type explícitamente
-      const response = await api.put(`/admin/products/${id}`, productData, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      return response.data
+    try {
+      if (isFormData) {
+        console.log('Sending FormData for update')
+        // Para FormData, no establecer Content-Type manualmente
+        const response = await api.put(`/admin/products/${id}`, productData, {
+          headers: {
+            // No establecer Content-Type para FormData
+          }
+        })
+        return response.data
+      } else {
+        console.log('Sending JSON for update')
+        // Para JSON, establecer Content-Type explícitamente
+        const response = await api.put(`/admin/products/${id}`, productData, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        return response.data
+      }
+    } catch (error) {
+      console.error('Error in updateProduct:', error.response?.data || error.message)
+      throw error
     }
   },
 

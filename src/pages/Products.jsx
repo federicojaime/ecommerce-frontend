@@ -78,8 +78,8 @@ const Products = () => {
         return
       }
       
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-        toast.error('Solo se permiten imágenes JPG, PNG o WEBP')
+      if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+        toast.error('Solo se permiten imágenes JPG, PNG, WEBP o GIF')
         return
       }
 
@@ -101,7 +101,7 @@ const Products = () => {
       
       // Agregar todos los campos del producto
       Object.keys(formData).forEach(key => {
-        if (formData[key] !== '') {
+        if (formData[key] !== '' && formData[key] !== null) {
           formDataToSend.append(key, formData[key])
         }
       })
@@ -109,6 +109,13 @@ const Products = () => {
       // Agregar imagen si existe
       if (selectedImage) {
         formDataToSend.append('image', selectedImage)
+        console.log('Image added to FormData:', selectedImage.name)
+      }
+
+      // Log para debugging
+      console.log('FormData contents:')
+      for (let [key, value] of formDataToSend.entries()) {
+        console.log(key, ':', value)
       }
 
       if (editingProduct) {
@@ -124,7 +131,8 @@ const Products = () => {
       fetchProducts()
     } catch (error) {
       console.error('Error saving product:', error)
-      toast.error('Error al guardar producto')
+      const errorMessage = error.response?.data?.error || 'Error al guardar producto'
+      toast.error(errorMessage)
     }
   }
 
@@ -186,14 +194,23 @@ const Products = () => {
     setShowModal(true)
   }
 
+  // CAMBIO: URL corregida para XAMPP
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null
+    return `http://localhost/ecommerce-api/public/uploads/${imagePath}`
+  }
+
   const renderProductImage = (product) => {
-    if (product.primary_image) {
+    const imageUrl = getImageUrl(product.primary_image)
+    
+    if (imageUrl) {
       return (
         <img
-          src={`http://localhost:8000/uploads/${product.primary_image}`}
+          src={imageUrl}
           alt={product.name}
           className="w-full h-full object-cover"
           onError={(e) => {
+            console.error('Error loading image:', imageUrl)
             e.target.style.display = 'none'
             e.target.nextElementSibling.style.display = 'flex'
           }}
@@ -529,7 +546,7 @@ const Products = () => {
                     <div className="mb-4">
                       <div className="relative inline-block">
                         <img
-                          src={imagePreview || `http://localhost:8000/uploads/${editingProduct.primary_image}`}
+                          src={imagePreview || getImageUrl(editingProduct.primary_image)}
                           alt="Preview"
                           className="w-32 h-32 object-cover rounded-xl border border-slate-200"
                         />
