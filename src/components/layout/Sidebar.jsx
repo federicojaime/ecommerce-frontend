@@ -24,8 +24,8 @@ const navigation = [
 ]
 
 const secondaryNavigation = [
-  { name: 'Configuración', href: '/settings', icon: Cog6ToothIcon },
-  { name: 'Ayuda', href: '/help', icon: QuestionMarkCircleIcon },
+  { name: 'Configuración', href: '/settings', icon: Cog6ToothIcon, disabled: false },
+  { name: 'Ayuda', href: '/help', icon: QuestionMarkCircleIcon, disabled: false },
 ]
 
 const Sidebar = () => {
@@ -91,6 +91,12 @@ const Sidebar = () => {
                   key={item.name}
                   to={item.href}
                   onClick={closeMobileMenu}
+                  data-tutorial={
+                    item.href === '/dashboard' ? 'dashboard-link' : 
+                    item.href === '/products' ? 'products-link' :
+                    item.href === '/categories' ? 'categories-link' :
+                    item.href === '/orders' ? 'orders-link' : undefined
+                  }
                   className={({ isActive }) =>
                     `group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 relative ${
                       isActive
@@ -124,19 +130,50 @@ const Sidebar = () => {
             {/* Navigation Secundaria */}
             <div className="space-y-2">
               {secondaryNavigation.map((item) => (
-                <div
-                  key={item.name}
-                  className="group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 text-slate-400 cursor-not-allowed opacity-60 relative"
-                >
-                  <item.icon
-                    className="mr-4 flex-shrink-0 h-6 w-6 text-slate-400"
-                    aria-hidden="true"
-                  />
-                  <span className="truncate font-medium">{item.name}</span>
-                  <span className="ml-auto text-xs bg-[#eddacb]/20 text-amber-300 px-2 py-1 rounded-full">
-                    Próximamente
-                  </span>
-                </div>
+                item.disabled ? (
+                  <div
+                    key={item.name}
+                    className="group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 text-slate-400 cursor-not-allowed opacity-60 relative"
+                  >
+                    <item.icon
+                      className="mr-4 flex-shrink-0 h-6 w-6 text-slate-400"
+                      aria-hidden="true"
+                    />
+                    <span className="truncate font-medium">{item.name}</span>
+                    <span className="ml-auto text-xs bg-[#eddacb]/20 text-amber-300 px-2 py-1 rounded-full">
+                      Próximamente
+                    </span>
+                  </div>
+                ) : (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    onClick={closeMobileMenu}
+                    className={({ isActive }) =>
+                      `group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 relative ${
+                        isActive
+                          ? 'bg-[#eddacb]/15 text-[#eddacb] shadow-lg shadow-[#eddacb]/25'
+                          : 'text-slate-200 hover:text-white hover:bg-white/10'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {/* Indicador activo - línea dorada */}
+                        {isActive && (
+                          <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-10 bg-gradient-to-b from-[#eddacb] to-[#eddacb] rounded-r-full shadow-lg shadow-[#eddacb]/40" />
+                        )}
+                        <item.icon
+                          className={`mr-4 flex-shrink-0 h-6 w-6 transition-colors duration-200 ${
+                            isActive ? 'text-[#eddacb]' : 'text-slate-300 group-hover:text-white'
+                          }`}
+                          aria-hidden="true"
+                        />
+                        <span className="truncate font-medium">{item.name}</span>
+                      </>
+                    )}
+                  </NavLink>
+                )
               ))}
             </div>
           </nav>

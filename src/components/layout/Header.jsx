@@ -35,7 +35,7 @@ const Header = () => {
           </button>
 
           {/* Profile - Solo en desktop */}
-          <div className="relative hidden lg:flex items-center">
+          <div className="relative hidden lg:flex items-center" data-tutorial="user-profile">
             <div className="flex items-center bg-slate-50/80 rounded-xl px-3 py-2 border border-slate-200/80 hover:border-slate-300 transition-colors duration-200">
               <div className="w-8 h-8 bg-gradient-to-br from-[#eddacb] to-[#eddacb] rounded-lg flex items-center justify-center shadow-md">
                 <span className="text-slate-900 font-semibold text-sm">
@@ -68,4 +68,3 @@ const Header = () => {
 }
 
 export default Header
-

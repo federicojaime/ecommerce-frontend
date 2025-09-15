@@ -8,6 +8,8 @@ import Products from './pages/Products'
 import Categories from './pages/Categories'
 import Orders from './pages/Orders'
 import Users from './pages/Users'
+import Help from './pages/Help'
+import Settings from './pages/Settings'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -25,6 +27,8 @@ function App() {
               <Route path="categories" element={<Categories />} />
               <Route path="orders" element={<Orders />} />
               <Route path="users" element={<Users />} />
+              <Route path="help" element={<Help />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>
         </div>
