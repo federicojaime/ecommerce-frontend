@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
-import { 
-  PhotoIcon, 
-  XMarkIcon, 
+import {
+  PhotoIcon,
+  XMarkIcon,
   CloudArrowUpIcon,
   ArrowsUpDownIcon,
   StarIcon,
@@ -13,10 +13,10 @@ import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import toast from 'react-hot-toast'
 import { productImageService } from '../services/productImageService'
 
-const ImageUploader = ({ 
-  images = [], 
-  onImagesChange, 
-  maxImages = 7, 
+const ImageUploader = ({
+  images = [],
+  onImagesChange,
+  maxImages = 7,
   maxSize = 10 * 1024 * 1024, // 10MB
   acceptedFormats = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
   className = '',
@@ -34,7 +34,7 @@ const ImageUploader = ({
       toast.error(`${file.name} es muy grande. Máximo ${Math.round(maxSize / (1024 * 1024))}MB por imagen.`)
       return false
     }
-    
+
     if (!acceptedFormats.includes(file.type)) {
       toast.error(`${file.name} no es un formato válido. Use JPG, PNG, WEBP o GIF.`)
       return false
@@ -45,7 +45,7 @@ const ImageUploader = ({
 
   const handleFiles = async (files) => {
     const fileArray = Array.from(files)
-    
+
     if (images.length + fileArray.length > maxImages) {
       toast.error(`Solo puedes subir un máximo de ${maxImages} imágenes.`)
       return
@@ -101,7 +101,7 @@ const ImageUploader = ({
     setLoading(true)
     try {
       const response = await productImageService.uploadImages(productId, files)
-      
+
       // Refrescar la lista de imágenes
       if (response.images) {
         const processedImages = response.images.map((img, index) => ({
@@ -115,10 +115,10 @@ const ImageUploader = ({
           isPrimary: img.is_primary === 1,
           sortOrder: img.sort_order
         }))
-        
+
         onImagesChange([...images, ...processedImages])
       }
-      
+
       toast.success(`${files.length} imagen${files.length > 1 ? 'es' : ''} subida${files.length > 1 ? 's' : ''}`)
     } catch (error) {
       console.error('Error uploading images:', error)
@@ -160,7 +160,7 @@ const ImageUploader = ({
    */
   const removeImage = async (imageId) => {
     const image = images.find(img => img.id === imageId)
-    
+
     if (!image) return
 
     // Si es una imagen existente y tenemos productId, eliminar del servidor
@@ -182,7 +182,7 @@ const ImageUploader = ({
     // Eliminar de la lista local
     const updatedImages = images.filter(img => img.id !== imageId)
     onImagesChange(updatedImages)
-    
+
     if (image.isNew) {
       toast.success('Imagen removida de la lista')
     }
@@ -208,26 +208,26 @@ const ImageUploader = ({
   const handleDropReorder = async (e, dropIndex) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     if (draggedIndex === null || draggedIndex === dropIndex) return
 
     const updatedImages = [...images]
     const draggedImage = updatedImages[draggedIndex]
-    
+
     // Remover imagen de posición original
     updatedImages.splice(draggedIndex, 1)
-    
+
     // Insertar en nueva posición
     updatedImages.splice(dropIndex, 0, draggedImage)
-    
+
     onImagesChange(updatedImages)
     setDraggedIndex(null)
-    
+
     // Si estamos en modo edición, actualizar orden en el servidor
     if (mode === 'edit' && productId) {
       await updateServerOrder(updatedImages)
     }
-    
+
     toast.success('Imágenes reordenadas')
   }
 
@@ -236,7 +236,7 @@ const ImageUploader = ({
    */
   const updateServerOrder = async (orderedImages) => {
     const existingImages = orderedImages.filter(img => img.isExisting && img.imageId)
-    
+
     if (existingImages.length === 0) return
 
     try {
@@ -253,22 +253,22 @@ const ImageUploader = ({
    */
   const moveImage = async (fromIndex, direction) => {
     const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1
-    
+
     if (toIndex < 0 || toIndex >= images.length) return
-    
+
     const updatedImages = [...images]
     const imageToMove = updatedImages[fromIndex]
-    
+
     updatedImages.splice(fromIndex, 1)
     updatedImages.splice(toIndex, 0, imageToMove)
-    
+
     onImagesChange(updatedImages)
-    
+
     // Si estamos en modo edición, actualizar orden en el servidor
     if (mode === 'edit' && productId) {
       await updateServerOrder(updatedImages)
     }
-    
+
     toast.success('Imagen movida')
   }
 
@@ -277,16 +277,16 @@ const ImageUploader = ({
    */
   const setPrimaryImage = async (index) => {
     if (index === 0) return // Ya es primaria
-    
+
     const updatedImages = [...images]
     const imageToMakePrimary = updatedImages[index]
-    
+
     // Mover a la primera posición
     updatedImages.splice(index, 1)
     updatedImages.unshift(imageToMakePrimary)
-    
+
     onImagesChange(updatedImages)
-    
+
     // Si es una imagen existente y tenemos productId, actualizar en servidor
     if (imageToMakePrimary.isExisting && productId && imageToMakePrimary.imageId) {
       try {
@@ -306,7 +306,7 @@ const ImageUploader = ({
    */
   const optimizeImage = async (imageId) => {
     const image = images.find(img => img.id === imageId)
-    
+
     if (!image?.isExisting || !productId || !image.imageId) {
       toast.error('Solo se pueden optimizar imágenes existentes')
       return
@@ -320,9 +320,9 @@ const ImageUploader = ({
         quality: 85,
         format: 'webp'
       })
-      
+
       toast.success('Imagen optimizada correctamente')
-      
+
       // Recargar la imagen actualizada
       // Aquí podrías recargar las imágenes del producto
     } catch (error) {
@@ -338,10 +338,10 @@ const ImageUploader = ({
    */
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null
-    
+
     if (imagePath.startsWith('http')) return imagePath
-    
-    const baseUrl = 'http://localhost/ecommerce-api/public'
+
+    const baseUrl = 'https://decohomesinrival.com.ar/ecommerce-api/public'
     const cleanPath = imagePath.replace(/^\/+/, '')
     return `${baseUrl}/uploads/${cleanPath}`
   }
@@ -350,11 +350,10 @@ const ImageUploader = ({
     <div className={`space-y-4 ${className}`}>
       {/* Área de carga */}
       <div
-        className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${
-          dragActive 
-            ? 'border-[#eddacb] bg-amber-50' 
+        className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${dragActive
+            ? 'border-[#eddacb] bg-amber-50'
             : 'border-slate-300 hover:border-[#eddacb]'
-        } ${loading ? 'opacity-50 pointer-events-none' : ''}`}
+          } ${loading ? 'opacity-50 pointer-events-none' : ''}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -370,7 +369,7 @@ const ImageUploader = ({
           onChange={handleFileInput}
           disabled={loading}
         />
-        
+
         <div className="flex flex-col items-center">
           {loading ? (
             <div className="w-16 h-16 flex items-center justify-center mb-4">
@@ -381,12 +380,12 @@ const ImageUploader = ({
           ) : (
             <PhotoIcon className="w-16 h-16 text-slate-400 mb-4" />
           )}
-          
+
           <div>
             <p className="text-lg font-medium text-slate-600 mb-1">
               {loading ? 'Subiendo imágenes...' :
-               dragActive ? 'Suelta las imágenes aquí' : 
-               images.length > 0 ? 'Agregar más imágenes' : 'Agregar imágenes'
+                dragActive ? 'Suelta las imágenes aquí' :
+                  images.length > 0 ? 'Agregar más imágenes' : 'Agregar imágenes'
               }
             </p>
             <p className="text-sm text-slate-500 mb-2">
@@ -406,13 +405,12 @@ const ImageUploader = ({
       {images.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {images.map((image, index) => (
-            <div 
-              key={image.id} 
-              className={`relative group rounded-xl overflow-hidden hover:shadow-md transition-all duration-200 border-2 ${
-                image.isExisting 
-                  ? 'bg-emerald-50 border-emerald-200' 
+            <div
+              key={image.id}
+              className={`relative group rounded-xl overflow-hidden hover:shadow-md transition-all duration-200 border-2 ${image.isExisting
+                  ? 'bg-emerald-50 border-emerald-200'
                   : 'bg-white border-slate-200'
-              } ${draggedIndex === index ? 'opacity-50 scale-95' : ''}`}
+                } ${draggedIndex === index ? 'opacity-50 scale-95' : ''}`}
               draggable
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
@@ -429,12 +427,12 @@ const ImageUploader = ({
                   e.target.nextElementSibling.style.display = 'flex'
                 }}
               />
-              
+
               {/* Fallback si la imagen no carga */}
               <div className="w-full h-32 bg-slate-100 flex items-center justify-center text-slate-400" style={{ display: 'none' }}>
                 <PhotoIcon className="w-8 h-8" />
               </div>
-              
+
               {/* Overlay con controles */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2">
                 {/* Botones principales */}
@@ -480,7 +478,7 @@ const ImageUploader = ({
                     <XMarkIcon className="w-3 h-3" />
                   </button>
                 </div>
-                
+
                 {/* Botones de reordenamiento */}
                 <div className="flex items-center gap-1">
                   {index > 0 && (
@@ -496,7 +494,7 @@ const ImageUploader = ({
                       <ArrowsUpDownIcon className="w-3 h-3 rotate-180" />
                     </button>
                   )}
-                  
+
                   {index < images.length - 1 && (
                     <button
                       type="button"
@@ -511,7 +509,7 @@ const ImageUploader = ({
                     </button>
                   )}
                 </div>
-                
+
                 {/* Botón hacer primaria */}
                 {index !== 0 && (
                   <button
@@ -528,7 +526,7 @@ const ImageUploader = ({
                   </button>
                 )}
               </div>
-              
+
               {/* Indicadores */}
               <div className="absolute top-2 left-2 z-10 space-y-1">
                 {/* Indicador de imagen principal */}
@@ -538,7 +536,7 @@ const ImageUploader = ({
                     Principal
                   </span>
                 )}
-                
+
                 {/* Indicador de imagen existente */}
                 {image.isExisting && (
                   <span className="bg-emerald-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
@@ -553,14 +551,14 @@ const ImageUploader = ({
                   </span>
                 )}
               </div>
-              
+
               {/* Indicador de orden */}
               <div className="absolute top-2 right-2">
                 <span className="bg-slate-900/70 text-white text-xs px-2 py-1 rounded-full font-semibold">
                   {index + 1}
                 </span>
               </div>
-              
+
               {/* Información del archivo */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                 <p className="text-white text-xs truncate">{image.name}</p>
@@ -572,13 +570,13 @@ const ImageUploader = ({
           ))}
         </div>
       )}
-      
+
       {/* Mensaje de ayuda */}
       {images.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <p className="text-sm text-amber-800">
-            <strong>💡 Gestión avanzada:</strong> Arrastra para reordenar, click en ⭐ para hacer principal, 
-            usa 👁️ para ver completa y ⚙️ para optimizar. 
+            <strong>💡 Gestión avanzada:</strong> Arrastra para reordenar, click en ⭐ para hacer principal,
+            usa 👁️ para ver completa y ⚙️ para optimizar.
             {mode === 'edit' ? ' Los cambios se guardan automáticamente.' : ' Guardar producto para aplicar cambios.'}
           </p>
         </div>

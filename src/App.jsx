@@ -18,7 +18,7 @@ function App() {
   return (
     <AuthProvider>
       <SettingsProvider>
-        <Router>
+        <Router basename="/panel-admin">
           <div className="min-h-screen bg-neutral-50">
             <Toaster 
               position="top-right"

@@ -1,7 +1,8 @@
 ﻿import axios from 'axios'
 
 // URL base para XAMPP
-const API_URL = 'http://localhost/ecommerce-api/public/api'
+//const API_URL = 'http://localhost/ecommerce-api/public/api'
+const API_URL = 'https://decohomesinrival.com.ar/ecommerce-api/public/api'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -78,8 +79,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       console.log('Token expirado, redirigiendo al login')
       localStorage.removeItem('token')
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+      if (window.location.pathname !== '/panel-admin/login') {
+        window.location.href = '/panel-admin/login'  // ✅ Ruta absoluta, funciona bien
       }
     }
 
@@ -96,12 +97,12 @@ export const authService = {
   login: async (email, password) => {
     try {
       console.log('Attempting login for:', email)
-      
-      const response = await api.post('/auth/login', { 
-        email: email.trim(), 
-        password: password 
+
+      const response = await api.post('/auth/login', {
+        email: email.trim(),
+        password: password
       })
-      
+
       console.log('Login response:', response.data)
 
       if (!response.data.user || !response.data.token) {
@@ -138,7 +139,7 @@ export const authService = {
   register: async (userData) => {
     try {
       console.log('Registering user:', { ...userData, password: '[HIDDEN]' })
-      
+
       const response = await api.post('/auth/register', {
         name: userData.name,
         email: userData.email,
@@ -146,7 +147,7 @@ export const authService = {
         password_confirmation: userData.password_confirmation || userData.password,
         role: userData.role || 'customer'
       })
-      
+
       console.log('Register response:', response.data)
       return response.data
     } catch (error) {
@@ -161,13 +162,13 @@ export const authService = {
   changePassword: async (currentPassword, newPassword) => {
     try {
       console.log('Changing password...')
-      
+
       const response = await api.put('/auth/change-password', {
         current_password: currentPassword,
         new_password: newPassword,
         new_password_confirmation: newPassword
       })
-      
+
       console.log('Change password response:', response.data)
       return response.data
     } catch (error) {
@@ -182,13 +183,13 @@ export const authService = {
   updateProfile: async (profileData) => {
     try {
       console.log('Updating profile:', profileData)
-      
+
       const response = await api.put('/auth/profile', {
         name: profileData.name,
         email: profileData.email,
         phone: profileData.phone
       })
-      
+
       console.log('Update profile response:', response.data)
       return response.data
     } catch (error) {
@@ -203,21 +204,21 @@ export const authService = {
   logout: async () => {
     try {
       console.log('Logging out...')
-      
+
       const response = await api.post('/auth/logout')
-      
+
       console.log('Logout response:', response.data)
-      
+
       // Limpiar datos locales
       localStorage.removeItem('token')
-      
+
       return response.data
     } catch (error) {
       console.error('Logout error:', error.response?.data || error.message)
-      
+
       // Limpiar datos locales incluso si el logout del servidor falla
       localStorage.removeItem('token')
-      
+
       throw error
     }
   },
@@ -228,19 +229,19 @@ export const authService = {
   validateToken: async () => {
     try {
       console.log('Validating token...')
-      
+
       const response = await api.get('/auth/validate-token')
-      
+
       console.log('Validate token response:', response.data)
       return response.data
     } catch (error) {
       console.error('Validate token error:', error.response?.data || error.message)
-      
+
       // Si el token no es válido, limpiar datos locales
       if (error.response?.status === 401) {
         localStorage.removeItem('token')
       }
-      
+
       throw error
     }
   },

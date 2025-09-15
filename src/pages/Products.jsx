@@ -1,11 +1,11 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { apiService } from '../services/apiService'
-import { 
-  PlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
-  MagnifyingGlassIcon, 
-  PhotoIcon, 
+import {
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  MagnifyingGlassIcon,
+  PhotoIcon,
   XMarkIcon,
   CloudArrowUpIcon,
   ArrowsUpDownIcon
@@ -86,7 +86,7 @@ const ExportMenu = ({ onExport, disabled = false, currentFilters = {} }) => {
                 Se exportarán los productos filtrados
               </div>
             )}
-            
+
             <button
               onClick={() => handleExport('excel')}
               className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg flex items-center"
@@ -141,20 +141,20 @@ const Products = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
-  
+
   const [filters, setFilters] = useState({
     category: '',
     status: ''
   })
-  
+
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
   const [uploading, setUploading] = useState(false)
-  
+
   // Estado para imágenes
   const [images, setImages] = useState([])
   const [deletedImageIds, setDeletedImageIds] = useState([])
-  
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -186,26 +186,26 @@ const Products = () => {
     try {
       // Crear filtros para la exportación
       const exportFilters = {}
-      
+
       if (debouncedSearchTerm && debouncedSearchTerm.length >= 2) {
         exportFilters.search = debouncedSearchTerm
       }
-      
+
       if (filters.category) {
         exportFilters.category = filters.category
       }
-      
+
       if (filters.status) {
         exportFilters.status = filters.status
       }
 
       await exportFilteredProducts(exportFilters, apiService, format)
-      
+
       const hasFilters = Object.keys(exportFilters).length > 0
-      const message = hasFilters 
+      const message = hasFilters
         ? `Productos filtrados exportados exitosamente en formato ${format.toUpperCase()}`
         : `Todos los productos exportados exitosamente en formato ${format.toUpperCase()}`
-      
+
       toast.success(message)
     } catch (error) {
       console.error('Error en exportación:', error)
@@ -244,9 +244,9 @@ const Products = () => {
         limit: 10,
         ...combinedFilters
       }
-      
+
       console.log('Buscando productos con filtros:', params)
-      
+
       const data = await apiService.getProducts(params)
       setProducts(data.data || [])
       setTotalPages(data.pagination?.pages || 1)
@@ -273,7 +273,7 @@ const Products = () => {
     const value = e.target.value
     setSearchTerm(value)
     setCurrentPage(1)
-    
+
     if (value === '') {
       setSearching(false)
     }
@@ -319,25 +319,25 @@ const Products = () => {
     if (!imagePath) {
       return null
     }
-    
+
     if (imagePath.startsWith('http')) {
       return imagePath
     }
-    
-    const baseUrl = 'http://localhost/ecommerce-api/public'
+
+    const baseUrl = 'https://decohomesinrival.com.ar/ecommerce-api/public'
     const cleanPath = imagePath.replace(/^\/+/, '')
     const fullUrl = `${baseUrl}/uploads/${cleanPath}`
-    
+
     return fullUrl
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setUploading(true)
-    
+
     try {
       const formDataToSend = new FormData()
-      
+
       Object.keys(formData).forEach(key => {
         const value = formData[key]
         if (value !== '' && value !== null && value !== undefined) {
@@ -348,7 +348,7 @@ const Products = () => {
           }
         }
       })
-      
+
       const newImageFiles = getFiles()
       newImageFiles.forEach((file, index) => {
         if (index === 0 && !images.some(img => img.isExisting)) {
@@ -361,7 +361,7 @@ const Products = () => {
       let response
       if (editingProduct) {
         response = await apiService.updateProduct(editingProduct.id, formDataToSend)
-        
+
         try {
           await apiService.manageProductImages(editingProduct.id, images, deletedImageIds)
           console.log('Images managed successfully')
@@ -369,22 +369,22 @@ const Products = () => {
           console.error('Error managing images:', imageError)
           toast.warning('Producto actualizado, pero hubo problemas con algunas imágenes')
         }
-        
+
         toast.success('Producto actualizado correctamente')
       } else {
         response = await apiService.createProduct(formDataToSend)
         toast.success('Producto creado correctamente')
       }
-      
+
       setShowModal(false)
       setEditingProduct(null)
       resetForm()
       fetchProducts()
     } catch (error) {
       console.error('Error saving product:', error)
-      
+
       let errorMessage = 'Error al guardar producto'
-      
+
       if (error.response?.data?.error) {
         errorMessage = error.response.data.error
       } else if (error.response?.data?.message) {
@@ -392,7 +392,7 @@ const Products = () => {
       } else if (error.message) {
         errorMessage = error.message
       }
-      
+
       if (error.code === 'ERR_NETWORK') {
         errorMessage = 'Error de conexión. Verifica que el servidor esté funcionando.'
       } else if (error.response?.status === 413) {
@@ -400,7 +400,7 @@ const Products = () => {
       } else if (error.response?.status === 422) {
         errorMessage = 'Datos inválidos. Verifica todos los campos.'
       }
-      
+
       toast.error(errorMessage)
     } finally {
       setUploading(false)
@@ -410,7 +410,7 @@ const Products = () => {
   const handleEdit = async (product) => {
     console.log('=== INICIANDO EDICION ===')
     console.log('Producto seleccionado:', product)
-    
+
     setEditingProduct(product)
     setFormData({
       name: product.name || '',
@@ -427,18 +427,18 @@ const Products = () => {
       weight: product.weight || '',
       dimensions: product.dimensions || ''
     })
-    
+
     clearImages()
     setShowModal(true)
-    
+
     try {
       console.log('Obteniendo detalles completos del producto ID:', product.id)
       const productDetails = await apiService.getProduct(product.id)
       console.log('Detalles recibidos:', productDetails)
-      
+
       if (productDetails.images && productDetails.images.length > 0) {
         console.log('Procesando', productDetails.images.length, 'imágenes')
-        
+
         const processedImages = productDetails.images
           .sort((a, b) => {
             if (a.is_primary && !b.is_primary) return -1
@@ -448,7 +448,7 @@ const Products = () => {
           .map((img, index) => {
             const imageUrl = getImageUrl(img.image_path)
             console.log(`Imagen ${index + 1}: ${img.image_path} -> ${imageUrl}`)
-            
+
             return {
               id: `existing_${img.id}`,
               preview: imageUrl,
@@ -461,9 +461,9 @@ const Products = () => {
               sortOrder: img.sort_order
             }
           })
-        
+
         console.log('Imágenes procesadas:', processedImages)
-        
+
         setTimeout(() => {
           setImages(processedImages)
           toast.success(`${processedImages.length} imágenes cargadas`)
@@ -518,9 +518,9 @@ const Products = () => {
 
   const renderProductImage = (product) => {
     const imageUrl = getImageUrl(product.primary_image || product.image)
-    
+
     if (!imageUrl) return null
-    
+
     return (
       <img
         src={imageUrl}
@@ -559,12 +559,12 @@ const Products = () => {
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Botón de exportar con menú desplegable */}
-          <ExportMenu 
+          <ExportMenu
             onExport={handleExport}
             disabled={exporting || loading}
             currentFilters={combinedFilters}
           />
-          <button 
+          <button
             onClick={openCreateModal}
             className="bg-gradient-to-r from-[#eddacb] to-[#eddacb] hover:from-[#eddacb] hover:to-[#eddacb] text-slate-900 px-4 lg:px-6 py-2 lg:py-3 rounded-xl font-semibold flex items-center justify-center transition-all duration-200 shadow-lg"
           >
@@ -610,7 +610,7 @@ const Products = () => {
               )}
             </div>
           </div>
-          
+
           <select
             className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb] transition-all duration-200"
             value={filters.category}
@@ -621,7 +621,7 @@ const Products = () => {
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
-          
+
           <select
             className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb] transition-all duration-200"
             value={filters.status}
@@ -632,7 +632,7 @@ const Products = () => {
             <option value="inactive">Agotado</option>
             <option value="draft">En revisión</option>
           </select>
-          
+
           <button
             onClick={clearAllFilters}
             className="px-4 py-3 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors duration-200"
@@ -640,7 +640,7 @@ const Products = () => {
             Limpiar Todo
           </button>
         </div>
-        
+
         {/* Indicador de búsqueda mínima */}
         {searchTerm && searchTerm.length > 0 && searchTerm.length < 2 && (
           <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -649,7 +649,7 @@ const Products = () => {
             </p>
           </div>
         )}
-        
+
         {/* Indicador de filtros activos */}
         {hasActiveFilters && (
           <div className="mt-4 pt-4 border-t border-slate-200">
@@ -723,7 +723,7 @@ const Products = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-2">
@@ -732,13 +732,13 @@ const Products = () => {
                       <p className="text-sm text-slate-500 mt-1">{product.sku}</p>
                     </div>
                     <div className="flex space-x-2 ml-4">
-                      <button 
+                      <button
                         onClick={() => handleEdit(product)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(product.id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                       >
@@ -748,7 +748,7 @@ const Products = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-slate-500">Precio:</span>
@@ -761,15 +761,14 @@ const Products = () => {
                   <p className="font-semibold text-slate-900">{product.stock || 0}</p>
                 </div>
               </div>
-              
+
               <div className="flex justify-between items-center mt-3">
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                  product.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
-                  product.status === 'inactive' ? 'bg-red-100 text-red-800' :
-                  'bg-amber-100 text-amber-800'
-                }`}>
+                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${product.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                    product.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                      'bg-amber-100 text-amber-800'
+                  }`}>
                   {product.status === 'active' ? 'Disponible' :
-                   product.status === 'inactive' ? 'Agotado' : 'En revisión'}
+                    product.status === 'inactive' ? 'Agotado' : 'En revisión'}
                 </span>
                 <span className="text-sm text-slate-500">{product.category_name || '-'}</span>
               </div>
@@ -805,7 +804,7 @@ const Products = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Product Info */}
                       <div>
                         <div className="text-sm font-semibold text-slate-900">{product.name}</div>
@@ -818,13 +817,12 @@ const Products = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                      product.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
-                      product.status === 'inactive' ? 'bg-red-100 text-red-800' :
-                      'bg-amber-100 text-amber-800'
-                    }`}>
+                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${product.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                        product.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                          'bg-amber-100 text-amber-800'
+                      }`}>
                       {product.status === 'active' ? 'Disponible' :
-                       product.status === 'inactive' ? 'Agotado' : 'En revisión'}
+                        product.status === 'inactive' ? 'Agotado' : 'En revisión'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">
@@ -848,13 +846,13 @@ const Products = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end space-x-2">
-                      <button 
+                      <button
                         onClick={() => handleEdit(product)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(product.id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                       >
@@ -903,11 +901,10 @@ const Products = () => {
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-semibold ${
-                          currentPage === page
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-semibold ${currentPage === page
                             ? 'z-10 bg-amber-50 border-[#eddacb] text-[#eddacb]'
                             : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
-                        } ${i === 0 ? 'rounded-l-xl' : ''} ${i === Math.min(5, totalPages) - 1 ? 'rounded-r-xl' : ''}`}
+                          } ${i === 0 ? 'rounded-l-xl' : ''} ${i === Math.min(5, totalPages) - 1 ? 'rounded-r-xl' : ''}`}
                       >
                         {page}
                       </button>
@@ -924,26 +921,26 @@ const Products = () => {
       {products.length === 0 && !loading && !searching && (
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
           <h3 className="text-lg font-semibold text-slate-900 mb-2">
-            {hasActiveFilters ? 
-              'No se encontraron productos' : 
+            {hasActiveFilters ?
+              'No se encontraron productos' :
               'No hay productos'
             }
           </h3>
           <p className="text-slate-600 mb-6">
-            {hasActiveFilters ? 
-              'Intenta ajustar los filtros de búsqueda' : 
+            {hasActiveFilters ?
+              'Intenta ajustar los filtros de búsqueda' :
               'Comienza agregando tu primer producto'
             }
           </p>
           {!hasActiveFilters ? (
-            <button 
+            <button
               onClick={openCreateModal}
               className="bg-gradient-to-r from-[#eddacb] to-[#eddacb] hover:from-[#eddacb] hover:to-[#eddacb] text-slate-900 px-6 py-3 rounded-xl font-semibold"
             >
               Agregar Primer Producto
             </button>
           ) : (
-            <button 
+            <button
               onClick={clearAllFilters}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold"
             >
@@ -974,7 +971,7 @@ const Products = () => {
                 {/* Sección de Imágenes */}
                 <div className="bg-slate-50 rounded-xl p-6">
                   <h4 className="text-lg font-semibold text-slate-900 mb-4">Imágenes del producto</h4>
-                  
+
                   <ImageUploader
                     images={images}
                     onImagesChange={handleImagesChange}
@@ -1136,7 +1133,7 @@ const Products = () => {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="mt-6">
                     <div className="flex items-center">
                       <input

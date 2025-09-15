@@ -159,7 +159,7 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Link al registro */}
+          {/* Link al registro 
           <div className="mt-6 text-center">
             <p className="text-sm text-amber-200">
               ¿No tienes cuenta?{' '}
@@ -170,7 +170,7 @@ const Login = () => {
                 Regístrate aquí
               </Link>
             </p>
-          </div>
+          </div>*/}
         </div>
 
         {/* Footer corto (no empuja) */}
