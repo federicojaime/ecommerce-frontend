@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
     CogIcon,
     BuildingStorefrontIcon,
@@ -21,7 +21,10 @@ import {
     PlayIcon,
     CheckCircleIcon,
     XCircleIcon,
-    ClockIcon
+    ClockIcon,
+    PlusIcon,
+    TrashIcon,
+    PhotoIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../context/AuthContext'
 import { settingsService } from '../services/settingsService'
@@ -47,7 +50,16 @@ const Settings = () => {
         description: '',
         logo: null,
         currency: 'ARS',
-        timezone: 'America/Argentina/Buenos_Aires'
+        timezone: 'America/Argentina/Buenos_Aires',
+        country: 'Argentina',
+        city: 'Buenos Aires',
+        postal_code: '1000',
+        website: '',
+        language: 'es',
+        tax_id: '',
+        business_type: 'retail',
+        industry: 'home_decor',
+        founded_year: new Date().getFullYear()
     })
 
     const [userData, setUserData] = useState({
@@ -67,9 +79,16 @@ const Settings = () => {
         primaryColor: '#eddacb',
         secondaryColor: '#2d3c5d',
         accentColor: '#3b82f6',
+        successColor: '#10b981',
+        warningColor: '#f59e0b',
+        dangerColor: '#ef4444',
+        fontFamily: 'Inter, sans-serif',
         logoPosition: 'center',
         sidebarStyle: 'dark',
-        headerStyle: 'light'
+        headerStyle: 'light',
+        showBreadcrumbs: true,
+        showProductCount: true,
+        productGridColumns: 4
     })
 
     const [notificationData, setNotificationData] = useState({
@@ -78,35 +97,63 @@ const Settings = () => {
         stockAlerts: true,
         marketingEmails: false,
         weeklyReports: true,
-        monthlyReports: true
+        monthlyReports: true,
+        smtpHost: '',
+        smtpPort: 587,
+        smtpUsername: '',
+        smtpPassword: '',
+        smtpEncryption: 'tls',
+        fromEmail: '',
+        fromName: ''
     })
 
     const [securityData, setSecurityData] = useState({
         twoFactorAuth: false,
         sessionTimeout: 30,
         loginAlerts: true,
-        passwordExpiry: 90
+        passwordExpiry: 90,
+        passwordMinLength: 8,
+        requireSpecialChars: true,
+        requireNumbers: true,
+        requireUppercase: true,
+        maxLoginAttempts: 5,
+        lockoutDuration: 900,
+        rateLimitEnabled: true,
+        requestsPerMinute: 60
     })
 
     const [paymentData, setPaymentData] = useState({
+        currency: 'ARS',
+        taxRate: 21.0,
+        acceptPartialPayments: false,
         mercadoPago: { enabled: false, accessToken: '', publicKey: '', sandboxMode: true },
-        stripe: { enabled: false, secretKey: '', publishableKey: '' },
-        paypal: { enabled: false, clientId: '', clientSecret: '', sandboxMode: true }
+        stripe: { enabled: false, secretKey: '', publishableKey: '', webhookSecret: '' },
+        paypal: { enabled: false, clientId: '', clientSecret: '', sandboxMode: true },
+        bankTransfer: { enabled: true, accountDetails: '' }
     })
 
     const [shippingData, setShippingData] = useState({
         freeShippingThreshold: 15000,
         defaultShippingCost: 500,
         processingTime: '1-2 días hábiles',
+        defaultWeight: 0.5,
+        originAddress: 'Buenos Aires, Argentina',
         shippingZones: [
-            { name: 'CABA', cost: 500, time: '24-48hs' },
-            { name: 'GBA', cost: 800, time: '48-72hs' },
-            { name: 'Interior', cost: 1200, time: '3-5 días' }
-        ]
+            { name: 'CABA', cost: 500, time: '24-48hs', description: 'Capital Federal' },
+            { name: 'GBA', cost: 800, time: '48-72hs', description: 'Gran Buenos Aires' },
+            { name: 'Interior', cost: 1200, time: '3-5 días', description: 'Resto del país' }
+        ],
+        methods: {
+            standard: { enabled: true, name: 'Envío Estándar', price: 500.00, estimatedDays: '3-5', description: 'Envío estándar en días hábiles' },
+            express: { enabled: true, name: 'Envío Express', price: 1000.00, estimatedDays: '1-2', description: 'Envío rápido en 24-48hs' },
+            pickup: { enabled: true, name: 'Retiro en Tienda', price: 0.00, description: 'Retiro gratuito en nuestro local' }
+        }
     })
 
     const [stats, setStats] = useState(null)
     const [paymentTestResults, setPaymentTestResults] = useState({})
+    const [validationErrors, setValidationErrors] = useState({})
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
     // Cargar configuraciones desde la API
     useEffect(() => {
@@ -126,6 +173,18 @@ const Settings = () => {
         }
     }, [user])
 
+    // Detectar cambios no guardados
+    useEffect(() => {
+        const checkForChanges = () => {
+            // Lógica simple para detectar cambios
+            setHasUnsavedChanges(true)
+        }
+        
+        // Detectar cambios en los datos principales
+        const timeout = setTimeout(checkForChanges, 1000)
+        return () => clearTimeout(timeout)
+    }, [storeData, styleData, notificationData, securityData, paymentData, shippingData])
+
     const loadSettings = async () => {
         setInitialLoading(true)
         try {
@@ -138,6 +197,7 @@ const Settings = () => {
             if (settings.payment) setPaymentData(prev => ({ ...prev, ...settings.payment }))
             if (settings.shipping) setShippingData(prev => ({ ...prev, ...settings.shipping }))
 
+            setHasUnsavedChanges(false)
             toast.success('Configuraciones cargadas')
         } catch (error) {
             console.error('Error loading settings:', error)
@@ -156,9 +216,46 @@ const Settings = () => {
         }
     }
 
+    const validateAllSettings = useCallback(async () => {
+        try {
+            const allSettings = {
+                store: storeData,
+                style: styleData,
+                notifications: notificationData,
+                security: securityData,
+                payment: paymentData,
+                shipping: shippingData
+            }
+
+            const validation = await settingsService.validateSettings(allSettings)
+            
+            if (!validation.valid) {
+                setValidationErrors(validation.errors)
+                return false
+            }
+
+            if (validation.warnings && validation.warnings.length > 0) {
+                validation.warnings.forEach(warning => toast(warning, { icon: '⚠️' }))
+            }
+
+            setValidationErrors({})
+            return true
+        } catch (error) {
+            console.error('Error validating settings:', error)
+            toast.error('Error al validar configuraciones')
+            return false
+        }
+    }, [storeData, styleData, notificationData, securityData, paymentData, shippingData])
+
     const saveSettings = async () => {
         setLoading(true)
         try {
+            const isValid = await validateAllSettings()
+            if (!isValid) {
+                toast.error('Por favor corrige los errores antes de guardar')
+                return
+            }
+
             const settings = {
                 store: storeData,
                 style: styleData,
@@ -169,13 +266,14 @@ const Settings = () => {
             }
 
             await settingsService.saveSettings(settings)
-            toast.success('Configuración guardada correctamente')
+            setHasUnsavedChanges(false)
+            toast.success('Configuraciones guardadas correctamente')
             
             // Recargar estadísticas
             await loadConfigurationStats()
         } catch (error) {
             console.error('Error saving settings:', error)
-            toast.error('Error al guardar configuración')
+            toast.error('Error al guardar configuraciones')
         } finally {
             setLoading(false)
         }
@@ -236,10 +334,11 @@ const Settings = () => {
         try {
             const result = await settingsService.uploadLogo(file)
             setStoreData(prev => ({ ...prev, logo: result.logo_url }))
+            setHasUnsavedChanges(true)
             toast.success('Logo subido correctamente')
         } catch (error) {
             console.error('Error uploading logo:', error)
-            toast.error('Error al subir logo')
+            toast.error(error.message || 'Error al subir logo')
         } finally {
             setLoading(false)
         }
@@ -262,7 +361,7 @@ const Settings = () => {
         } catch (error) {
             console.error('Error testing payment connection:', error)
             setPaymentTestResults(prev => ({ ...prev, [provider]: 'error' }))
-            toast.error(`Error al conectar con ${provider}`)
+            toast.error(error.message || `Error al conectar con ${provider}`)
         } finally {
             setLoading(false)
         }
@@ -296,7 +395,7 @@ const Settings = () => {
             toast.success('Configuraciones importadas correctamente')
         } catch (error) {
             console.error('Error importing settings:', error)
-            toast.error('Error al importar configuraciones')
+            toast.error(error.message || 'Error al importar configuraciones')
         }
         
         // Limpiar input
@@ -306,8 +405,9 @@ const Settings = () => {
     const addShippingZone = () => {
         setShippingData(prev => ({
             ...prev,
-            shippingZones: [...prev.shippingZones, { name: '', cost: 0, time: '' }]
+            shippingZones: [...prev.shippingZones, { name: '', cost: 0, time: '', description: '' }]
         }))
+        setHasUnsavedChanges(true)
     }
 
     const removeShippingZone = (index) => {
@@ -315,6 +415,7 @@ const Settings = () => {
             ...prev,
             shippingZones: prev.shippingZones.filter((_, i) => i !== index)
         }))
+        setHasUnsavedChanges(true)
     }
 
     const updateShippingZone = (index, field, value) => {
@@ -324,6 +425,7 @@ const Settings = () => {
                 i === index ? { ...zone, [field]: value } : zone
             )
         }))
+        setHasUnsavedChanges(true)
     }
 
     const tabs = [
@@ -354,12 +456,15 @@ const Settings = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Nombre de la tienda</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Nombre de la tienda *</label>
                         <input
                             type="text"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={storeData.name}
-                            onChange={(e) => setStoreData(prev => ({ ...prev, name: e.target.value }))}
+                            onChange={(e) => {
+                                setStoreData(prev => ({ ...prev, name: e.target.value }))
+                                setHasUnsavedChanges(true)
+                            }}
                         />
                     </div>
 
@@ -369,7 +474,10 @@ const Settings = () => {
                             type="text"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={storeData.phone}
-                            onChange={(e) => setStoreData(prev => ({ ...prev, phone: e.target.value }))}
+                            onChange={(e) => {
+                                setStoreData(prev => ({ ...prev, phone: e.target.value }))
+                                setHasUnsavedChanges(true)
+                            }}
                         />
                     </div>
 
@@ -379,7 +487,10 @@ const Settings = () => {
                             type="email"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={storeData.email}
-                            onChange={(e) => setStoreData(prev => ({ ...prev, email: e.target.value }))}
+                            onChange={(e) => {
+                                setStoreData(prev => ({ ...prev, email: e.target.value }))
+                                setHasUnsavedChanges(true)
+                            }}
                         />
                     </div>
 
@@ -388,22 +499,54 @@ const Settings = () => {
                         <select
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={storeData.currency}
-                            onChange={(e) => setStoreData(prev => ({ ...prev, currency: e.target.value }))}
+                            onChange={(e) => {
+                                setStoreData(prev => ({ ...prev, currency: e.target.value }))
+                                setHasUnsavedChanges(true)
+                            }}
                         >
                             <option value="ARS">Peso Argentino (ARS)</option>
                             <option value="USD">Dólar Estadounidense (USD)</option>
                             <option value="EUR">Euro (EUR)</option>
                         </select>
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">País</label>
+                        <input
+                            type="text"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            value={storeData.country}
+                            onChange={(e) => {
+                                setStoreData(prev => ({ ...prev, country: e.target.value }))
+                                setHasUnsavedChanges(true)
+                            }}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Ciudad</label>
+                        <input
+                            type="text"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            value={storeData.city}
+                            onChange={(e) => {
+                                setStoreData(prev => ({ ...prev, city: e.target.value }))
+                                setHasUnsavedChanges(true)
+                            }}
+                        />
+                    </div>
                 </div>
 
                 <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Dirección completa</label>
                     <textarea
                         rows={3}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         value={storeData.address}
-                        onChange={(e) => setStoreData(prev => ({ ...prev, address: e.target.value }))}
+                        onChange={(e) => {
+                            setStoreData(prev => ({ ...prev, address: e.target.value }))
+                            setHasUnsavedChanges(true)
+                        }}
                     />
                 </div>
 
@@ -413,7 +556,10 @@ const Settings = () => {
                         rows={4}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         value={storeData.description}
-                        onChange={(e) => setStoreData(prev => ({ ...prev, description: e.target.value }))}
+                        onChange={(e) => {
+                            setStoreData(prev => ({ ...prev, description: e.target.value }))
+                            setHasUnsavedChanges(true)
+                        }}
                     />
                 </div>
 
@@ -436,6 +582,7 @@ const Settings = () => {
                                 className="hidden"
                                 accept="image/*"
                                 onChange={handleLogoUpload}
+                                disabled={loading}
                             />
                         </label>
                     </div>
@@ -635,13 +782,19 @@ const Settings = () => {
                                 type="color"
                                 className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                                 value={styleData.primaryColor}
-                                onChange={(e) => setStyleData(prev => ({ ...prev, primaryColor: e.target.value }))}
+                                onChange={(e) => {
+                                    setStyleData(prev => ({ ...prev, primaryColor: e.target.value }))
+                                    setHasUnsavedChanges(true)
+                                }}
                             />
                             <input
                                 type="text"
                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
                                 value={styleData.primaryColor}
-                                onChange={(e) => setStyleData(prev => ({ ...prev, primaryColor: e.target.value }))}
+                                onChange={(e) => {
+                                    setStyleData(prev => ({ ...prev, primaryColor: e.target.value }))
+                                    setHasUnsavedChanges(true)
+                                }}
                             />
                         </div>
                     </div>
@@ -653,13 +806,19 @@ const Settings = () => {
                                 type="color"
                                 className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                                 value={styleData.secondaryColor}
-                                onChange={(e) => setStyleData(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                                onChange={(e) => {
+                                    setStyleData(prev => ({ ...prev, secondaryColor: e.target.value }))
+                                    setHasUnsavedChanges(true)
+                                }}
                             />
                             <input
                                 type="text"
                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
                                 value={styleData.secondaryColor}
-                                onChange={(e) => setStyleData(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                                onChange={(e) => {
+                                    setStyleData(prev => ({ ...prev, secondaryColor: e.target.value }))
+                                    setHasUnsavedChanges(true)
+                                }}
                             />
                         </div>
                     </div>
@@ -669,7 +828,10 @@ const Settings = () => {
                         <select
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={styleData.sidebarStyle}
-                            onChange={(e) => setStyleData(prev => ({ ...prev, sidebarStyle: e.target.value }))}
+                            onChange={(e) => {
+                                setStyleData(prev => ({ ...prev, sidebarStyle: e.target.value }))
+                                setHasUnsavedChanges(true)
+                            }}
                         >
                             <option value="dark">Oscuro</option>
                             <option value="light">Claro</option>
@@ -681,7 +843,10 @@ const Settings = () => {
                         <select
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={styleData.logoPosition}
-                            onChange={(e) => setStyleData(prev => ({ ...prev, logoPosition: e.target.value }))}
+                            onChange={(e) => {
+                                setStyleData(prev => ({ ...prev, logoPosition: e.target.value }))
+                                setHasUnsavedChanges(true)
+                            }}
                         >
                             <option value="center">Centro</option>
                             <option value="left">Izquierda</option>
@@ -731,7 +896,10 @@ const Settings = () => {
                                 <p className="text-sm text-gray-500">{item.description}</p>
                             </div>
                             <button
-                                onClick={() => setNotificationData(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                                onClick={() => {
+                                    setNotificationData(prev => ({ ...prev, [item.key]: !prev[item.key] }))
+                                    setHasUnsavedChanges(true)
+                                }}
                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationData[item.key] ? 'bg-blue-600' : 'bg-gray-200'
                                     }`}
                             >
@@ -742,6 +910,61 @@ const Settings = () => {
                             </button>
                         </div>
                     ))}
+                </div>
+
+                <div className="mt-8">
+                    <h4 className="text-md font-medium text-gray-900 mb-4">Configuración SMTP</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Host SMTP</label>
+                            <input
+                                type="text"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={notificationData.smtpHost}
+                                onChange={(e) => {
+                                    setNotificationData(prev => ({ ...prev, smtpHost: e.target.value }))
+                                    setHasUnsavedChanges(true)
+                                }}
+                                placeholder="smtp.gmail.com"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Puerto SMTP</label>
+                            <input
+                                type="number"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={notificationData.smtpPort}
+                                onChange={(e) => {
+                                    setNotificationData(prev => ({ ...prev, smtpPort: parseInt(e.target.value) || 587 }))
+                                    setHasUnsavedChanges(true)
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Usuario SMTP</label>
+                            <input
+                                type="text"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={notificationData.smtpUsername}
+                                onChange={(e) => {
+                                    setNotificationData(prev => ({ ...prev, smtpUsername: e.target.value }))
+                                    setHasUnsavedChanges(true)
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña SMTP</label>
+                            <input
+                                type="password"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={notificationData.smtpPassword}
+                                onChange={(e) => {
+                                    setNotificationData(prev => ({ ...prev, smtpPassword: e.target.value }))
+                                    setHasUnsavedChanges(true)
+                                }}
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -759,7 +982,10 @@ const Settings = () => {
                             <p className="text-sm text-gray-500">Añade una capa extra de seguridad</p>
                         </div>
                         <button
-                            onClick={() => setSecurityData(prev => ({ ...prev, twoFactorAuth: !prev.twoFactorAuth }))}
+                            onClick={() => {
+                                setSecurityData(prev => ({ ...prev, twoFactorAuth: !prev.twoFactorAuth }))
+                                setHasUnsavedChanges(true)
+                            }}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${securityData.twoFactorAuth ? 'bg-green-600' : 'bg-gray-200'
                                 }`}
                         >
@@ -777,7 +1003,10 @@ const Settings = () => {
                         <select
                             className="w-full md:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={securityData.sessionTimeout}
-                            onChange={(e) => setSecurityData(prev => ({ ...prev, sessionTimeout: parseInt(e.target.value) }))}
+                            onChange={(e) => {
+                                setSecurityData(prev => ({ ...prev, sessionTimeout: parseInt(e.target.value) }))
+                                setHasUnsavedChanges(true)
+                            }}
                         >
                             <option value={15}>15 minutos</option>
                             <option value={30}>30 minutos</option>
@@ -793,7 +1022,10 @@ const Settings = () => {
                             <p className="text-sm text-gray-500">Notificar sobre nuevos inicios de sesión</p>
                         </div>
                         <button
-                            onClick={() => setSecurityData(prev => ({ ...prev, loginAlerts: !prev.loginAlerts }))}
+                            onClick={() => {
+                                setSecurityData(prev => ({ ...prev, loginAlerts: !prev.loginAlerts }))
+                                setHasUnsavedChanges(true)
+                            }}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${securityData.loginAlerts ? 'bg-blue-600' : 'bg-gray-200'
                                 }`}
                         >
@@ -811,7 +1043,10 @@ const Settings = () => {
                         <select
                             className="w-full md:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={securityData.passwordExpiry}
-                            onChange={(e) => setSecurityData(prev => ({ ...prev, passwordExpiry: parseInt(e.target.value) }))}
+                            onChange={(e) => {
+                                setSecurityData(prev => ({ ...prev, passwordExpiry: parseInt(e.target.value) }))
+                                setHasUnsavedChanges(true)
+                            }}
                         >
                             <option value={30}>30 días</option>
                             <option value={60}>60 días</option>
@@ -819,6 +1054,23 @@ const Settings = () => {
                             <option value={180}>180 días</option>
                             <option value={365}>1 año</option>
                         </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Longitud mínima de contraseña
+                        </label>
+                        <input
+                            type="number"
+                            min="6"
+                            max="32"
+                            className="w-full md:w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            value={securityData.passwordMinLength}
+                            onChange={(e) => {
+                                setSecurityData(prev => ({ ...prev, passwordMinLength: parseInt(e.target.value) || 8 }))
+                                setHasUnsavedChanges(true)
+                            }}
+                        />
                     </div>
                 </div>
             </div>
@@ -892,10 +1144,13 @@ const Settings = () => {
                                             <span>Probar</span>
                                         </button>
                                         <button
-                                            onClick={() => setPaymentData(prev => ({
-                                                ...prev,
-                                                [provider.id]: { ...prev[provider.id], enabled: !prev[provider.id]?.enabled }
-                                            }))}
+                                            onClick={() => {
+                                                setPaymentData(prev => ({
+                                                    ...prev,
+                                                    [provider.id]: { ...prev[provider.id], enabled: !prev[provider.id]?.enabled }
+                                                }))
+                                                setHasUnsavedChanges(true)
+                                            }}
                                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentData[provider.id]?.enabled ? `bg-${provider.color}-600` : 'bg-gray-200'
                                                 }`}
                                         >
@@ -920,10 +1175,13 @@ const Settings = () => {
                                                             type="checkbox"
                                                             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                                             checked={paymentData[provider.id]?.[field.key] || false}
-                                                            onChange={(e) => setPaymentData(prev => ({
-                                                                ...prev,
-                                                                [provider.id]: { ...prev[provider.id], [field.key]: e.target.checked }
-                                                            }))}
+                                                            onChange={(e) => {
+                                                                setPaymentData(prev => ({
+                                                                    ...prev,
+                                                                    [provider.id]: { ...prev[provider.id], [field.key]: e.target.checked }
+                                                                }))
+                                                                setHasUnsavedChanges(true)
+                                                            }}
                                                         />
                                                         <span className="ml-2 text-sm text-gray-600">{field.label}</span>
                                                     </div>
@@ -933,10 +1191,13 @@ const Settings = () => {
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                         placeholder={field.type === 'password' ? '••••••••' : `Ingresa tu ${field.label.toLowerCase()}`}
                                                         value={paymentData[provider.id]?.[field.key] || ''}
-                                                        onChange={(e) => setPaymentData(prev => ({
-                                                            ...prev,
-                                                            [provider.id]: { ...prev[provider.id], [field.key]: e.target.value }
-                                                        }))}
+                                                        onChange={(e) => {
+                                                            setPaymentData(prev => ({
+                                                                ...prev,
+                                                                [provider.id]: { ...prev[provider.id], [field.key]: e.target.value }
+                                                            }))
+                                                            setHasUnsavedChanges(true)
+                                                        }}
                                                     />
                                                 )}
                                             </div>
@@ -945,6 +1206,39 @@ const Settings = () => {
                                 )}
                             </div>
                         ))}
+                    </div>
+
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Moneda por defecto</label>
+                            <select
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={paymentData.currency}
+                                onChange={(e) => {
+                                    setPaymentData(prev => ({ ...prev, currency: e.target.value }))
+                                    setHasUnsavedChanges(true)
+                                }}
+                            >
+                                <option value="ARS">Peso Argentino (ARS)</option>
+                                <option value="USD">Dólar Estadounidense (USD)</option>
+                                <option value="EUR">Euro (EUR)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Tasa de impuestos (%)</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={paymentData.taxRate}
+                                onChange={(e) => {
+                                    setPaymentData(prev => ({ ...prev, taxRate: parseFloat(e.target.value) || 0 }))
+                                    setHasUnsavedChanges(true)
+                                }}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -968,10 +1262,13 @@ const Settings = () => {
                                     type="number"
                                     className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     value={shippingData.freeShippingThreshold}
-                                    onChange={(e) => setShippingData(prev => ({
-                                        ...prev,
-                                        freeShippingThreshold: parseInt(e.target.value) || 0
-                                    }))}
+                                    onChange={(e) => {
+                                        setShippingData(prev => ({
+                                            ...prev,
+                                            freeShippingThreshold: parseInt(e.target.value) || 0
+                                        }))
+                                        setHasUnsavedChanges(true)
+                                    }}
                                 />
                             </div>
                         </div>
@@ -986,10 +1283,13 @@ const Settings = () => {
                                     type="number"
                                     className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     value={shippingData.defaultShippingCost}
-                                    onChange={(e) => setShippingData(prev => ({
-                                        ...prev,
-                                        defaultShippingCost: parseInt(e.target.value) || 0
-                                    }))}
+                                    onChange={(e) => {
+                                        setShippingData(prev => ({
+                                            ...prev,
+                                            defaultShippingCost: parseInt(e.target.value) || 0
+                                        }))
+                                        setHasUnsavedChanges(true)
+                                    }}
                                 />
                             </div>
                         </div>
@@ -1003,10 +1303,13 @@ const Settings = () => {
                             type="text"
                             className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={shippingData.processingTime}
-                            onChange={(e) => setShippingData(prev => ({
-                                ...prev,
-                                processingTime: e.target.value
-                            }))}
+                            onChange={(e) => {
+                                setShippingData(prev => ({
+                                    ...prev,
+                                    processingTime: e.target.value
+                                }))
+                                setHasUnsavedChanges(true)
+                            }}
                         />
                     </div>
 
@@ -1016,14 +1319,15 @@ const Settings = () => {
                             <button
                                 type="button"
                                 onClick={addShippingZone}
-                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
                             >
+                                <PlusIcon className="w-4 h-4 mr-1" />
                                 Agregar Zona
                             </button>
                         </div>
                         <div className="space-y-3">
                             {shippingData.shippingZones.map((zone, index) => (
-                                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-gray-200 rounded-lg">
+                                <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border border-gray-200 rounded-lg">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Zona</label>
                                         <input
@@ -1054,13 +1358,22 @@ const Settings = () => {
                                             onChange={(e) => updateShippingZone(index, 'time', e.target.value)}
                                         />
                                     </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            value={zone.description}
+                                            onChange={(e) => updateShippingZone(index, 'description', e.target.value)}
+                                        />
+                                    </div>
                                     <div className="flex items-end">
                                         <button
                                             type="button"
                                             onClick={() => removeShippingZone(index)}
-                                            className="w-full px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+                                            className="w-full px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center"
                                         >
-                                            Eliminar
+                                            <TrashIcon className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
@@ -1154,6 +1467,18 @@ const Settings = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Alerta de cambios no guardados */}
+                {hasUnsavedChanges && (
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex items-center">
+                            <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 mr-2" />
+                            <p className="text-sm text-amber-800">
+                                Tienes cambios sin guardar. No olvides guardar tus configuraciones.
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -1220,6 +1545,23 @@ const Settings = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Validación de errores */}
+            {Object.keys(validationErrors).length > 0 && (
+                <div className="fixed bottom-4 right-4 max-w-sm bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg z-50">
+                    <div className="flex items-start">
+                        <XCircleIcon className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <h4 className="text-sm font-medium text-red-800">Errores de validación</h4>
+                            <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
+                                {Object.values(validationErrors).flat().map((error, index) => (
+                                    <li key={index}>{error}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
