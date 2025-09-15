@@ -516,4 +516,142 @@ export const apiService = {
     const response = await api.delete(`/admin/users/${id}`)
     return response.data
   },
+
+  // ==================== NOTIFICACIONES ====================
+
+  /**
+   * Obtener notificaciones del usuario actual
+   */
+  getNotifications: async (params = {}) => {
+    try {
+      console.log('Getting notifications with params:', params)
+      
+      const response = await api.get('/admin/notifications', { params })
+      console.log('Notifications response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error getting notifications:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Marcar notificación como leída
+   */
+  markNotificationAsRead: async (notificationId) => {
+    try {
+      console.log('Marking notification as read:', notificationId)
+      
+      const response = await api.put(`/admin/notifications/${notificationId}/read`)
+      console.log('Mark as read response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Marcar todas las notificaciones como leídas
+   */
+  markAllNotificationsAsRead: async () => {
+    try {
+      console.log('Marking all notifications as read')
+      
+      const response = await api.put('/admin/notifications/read-all')
+      console.log('Mark all as read response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Eliminar notificación
+   */
+  deleteNotification: async (notificationId) => {
+    try {
+      console.log('Deleting notification:', notificationId)
+      
+      const response = await api.delete(`/admin/notifications/${notificationId}`)
+      console.log('Delete notification response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error deleting notification:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Obtener configuración de notificaciones
+   */
+  getNotificationSettings: async () => {
+    try {
+      const response = await api.get('/admin/notifications/settings')
+      return response.data
+    } catch (error) {
+      console.error('Error getting notification settings:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Actualizar configuración de notificaciones
+   */
+  updateNotificationSettings: async (settings) => {
+    try {
+      const response = await api.put('/admin/notifications/settings', settings)
+      return response.data
+    } catch (error) {
+      console.error('Error updating notification settings:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Crear notificación manual
+   */
+  createNotification: async (notificationData) => {
+    try {
+      console.log('Creating notification:', notificationData)
+      
+      const response = await api.post('/admin/notifications', notificationData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      return response.data
+    } catch (error) {
+      console.error('Error creating notification:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Obtener estadísticas de notificaciones
+   */
+  getNotificationStats: async () => {
+    try {
+      const response = await api.get('/admin/notifications/stats')
+      return response.data
+    } catch (error) {
+      console.error('Error getting notification stats:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Obtener historial de notificaciones
+   */
+  getNotificationHistory: async (params = {}) => {
+    try {
+      const response = await api.get('/admin/notifications/history', { params })
+      return response.data
+    } catch (error) {
+      console.error('Error getting notification history:', error)
+      throw error
+    }
+  }
 }

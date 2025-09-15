@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { apiService } from '../services/apiService'
 import { 
   PlusIcon, 
@@ -12,18 +12,141 @@ import {
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import ImageUploader from '../components/ImageUploader'
+// Importar las utilidades de exportación
+import { exportFilteredProducts } from '../utils/exportUtils'
+
+// Hook personalizado para debounce mejorado
+const useDebounce = (value, delay = 800) => {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    if (!value || value.trim() === '') {
+      setDebouncedValue(value)
+      return
+    }
+
+    if (value.trim().length < 2) {
+      return
+    }
+
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+// Componente de menú de exportación
+const ExportMenu = ({ onExport, disabled = false, currentFilters = {} }) => {
+  const [showMenu, setShowMenu] = useState(false)
+  const hasFilters = Object.values(currentFilters).some(value => value && value !== '')
+
+  const handleExport = (format) => {
+    onExport(format)
+    setShowMenu(false)
+  }
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showMenu && !event.target.closest('.export-menu')) {
+        setShowMenu(false)
+      }
+    }
+
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showMenu])
+
+  return (
+    <div className="relative export-menu">
+      <button
+        onClick={() => setShowMenu(!showMenu)}
+        disabled={disabled}
+        className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-4 lg:px-6 py-2 lg:py-3 rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+      >
+        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Exportar
+        <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {showMenu && (
+        <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-10">
+          <div className="p-2">
+            {hasFilters && (
+              <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-100 mb-2">
+                Se exportarán los productos filtrados
+              </div>
+            )}
+            
+            <button
+              onClick={() => handleExport('excel')}
+              className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg flex items-center"
+            >
+              <svg className="w-4 h-4 mr-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <div>
+                <div className="font-medium">Excel (.xlsx)</div>
+                <div className="text-xs text-slate-500">Recomendado para análisis</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleExport('csv')}
+              className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg flex items-center"
+            >
+              <svg className="w-4 h-4 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <div>
+                <div className="font-medium">CSV (.csv)</div>
+                <div className="text-xs text-slate-500">Compatible con cualquier software</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleExport('json')}
+              className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg flex items-center"
+            >
+              <svg className="w-4 h-4 mr-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+              <div>
+                <div className="font-medium">JSON (.json)</div>
+                <div className="text-xs text-slate-500">Para desarrolladores</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const Products = () => {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searching, setSearching] = useState(false)
+  const [exporting, setExporting] = useState(false) // Nuevo estado para exportación
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [searchTerm, setSearchTerm] = useState('')
+  
   const [filters, setFilters] = useState({
-    search: '',
     category: '',
     status: ''
   })
+  
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
   const [uploading, setUploading] = useState(false)
@@ -48,10 +171,70 @@ const Products = () => {
     dimensions: ''
   })
 
+  // Debounce del término de búsqueda
+  const debouncedSearchTerm = useDebounce(searchTerm, 800)
+
+  // Crear filtros combinados
+  const combinedFilters = {
+    search: debouncedSearchTerm,
+    ...filters
+  }
+
+  // Función para manejar exportación
+  const handleExport = async (format) => {
+    setExporting(true)
+    try {
+      // Crear filtros para la exportación
+      const exportFilters = {}
+      
+      if (debouncedSearchTerm && debouncedSearchTerm.length >= 2) {
+        exportFilters.search = debouncedSearchTerm
+      }
+      
+      if (filters.category) {
+        exportFilters.category = filters.category
+      }
+      
+      if (filters.status) {
+        exportFilters.status = filters.status
+      }
+
+      await exportFilteredProducts(exportFilters, apiService, format)
+      
+      const hasFilters = Object.keys(exportFilters).length > 0
+      const message = hasFilters 
+        ? `Productos filtrados exportados exitosamente en formato ${format.toUpperCase()}`
+        : `Todos los productos exportados exitosamente en formato ${format.toUpperCase()}`
+      
+      toast.success(message)
+    } catch (error) {
+      console.error('Error en exportación:', error)
+      toast.error(error.message || 'Error al exportar productos')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // Cargar productos cuando cambien los filtros o la página
   useEffect(() => {
     fetchProducts()
-    fetchCategories()
-  }, [currentPage, filters])
+  }, [currentPage, debouncedSearchTerm, filters])
+
+  // Cargar categorías solo una vez
+  useEffect(() => {
+    if (categories.length === 0) {
+      fetchCategories()
+    }
+  }, [])
+
+  // Mostrar indicador de búsqueda
+  useEffect(() => {
+    if (searchTerm && searchTerm.length >= 2 && searchTerm !== debouncedSearchTerm) {
+      setSearching(true)
+    } else {
+      setSearching(false)
+    }
+  }, [searchTerm, debouncedSearchTerm])
 
   const fetchProducts = async () => {
     try {
@@ -59,8 +242,11 @@ const Products = () => {
       const params = {
         page: currentPage,
         limit: 10,
-        ...filters
+        ...combinedFilters
       }
+      
+      console.log('Buscando productos con filtros:', params)
+      
       const data = await apiService.getProducts(params)
       setProducts(data.data || [])
       setTotalPages(data.pagination?.pages || 1)
@@ -69,6 +255,7 @@ const Products = () => {
       toast.error('Error al cargar productos')
     } finally {
       setLoading(false)
+      setSearching(false)
     }
   }
 
@@ -81,8 +268,33 @@ const Products = () => {
     }
   }
 
+  // Manejar cambio en el input de búsqueda
+  const handleSearchChange = (e) => {
+    const value = e.target.value
+    setSearchTerm(value)
+    setCurrentPage(1)
+    
+    if (value === '') {
+      setSearching(false)
+    }
+  }
+
+  // Manejar cambio en otros filtros
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }))
+    setCurrentPage(1)
+  }
+
+  // Limpiar todos los filtros
+  const clearAllFilters = () => {
+    setSearchTerm('')
+    setFilters({ category: '', status: '' })
+    setCurrentPage(1)
+  }
+
+  // Limpiar solo la búsqueda
+  const clearSearch = () => {
+    setSearchTerm('')
     setCurrentPage(1)
   }
 
@@ -108,14 +320,12 @@ const Products = () => {
       return null
     }
     
-    // Si ya es una URL completa, devolverla como está
     if (imagePath.startsWith('http')) {
       return imagePath
     }
     
-    // Construir URL para XAMPP
     const baseUrl = 'http://localhost/ecommerce-api/public'
-    const cleanPath = imagePath.replace(/^\/+/, '') // Remover barras al inicio
+    const cleanPath = imagePath.replace(/^\/+/, '')
     const fullUrl = `${baseUrl}/uploads/${cleanPath}`
     
     return fullUrl
@@ -128,7 +338,6 @@ const Products = () => {
     try {
       const formDataToSend = new FormData()
       
-      // Agregar todos los campos del producto
       Object.keys(formData).forEach(key => {
         const value = formData[key]
         if (value !== '' && value !== null && value !== undefined) {
@@ -140,7 +349,6 @@ const Products = () => {
         }
       })
       
-      // Agregar solo archivos nuevos (no existentes)
       const newImageFiles = getFiles()
       newImageFiles.forEach((file, index) => {
         if (index === 0 && !images.some(img => img.isExisting)) {
@@ -152,10 +360,8 @@ const Products = () => {
 
       let response
       if (editingProduct) {
-        // Actualizar producto básico
         response = await apiService.updateProduct(editingProduct.id, formDataToSend)
         
-        // Gestionar imágenes avanzadas por separado
         try {
           await apiService.manageProductImages(editingProduct.id, images, deletedImageIds)
           console.log('Images managed successfully')
@@ -205,7 +411,6 @@ const Products = () => {
     console.log('=== INICIANDO EDICION ===')
     console.log('Producto seleccionado:', product)
     
-    // Configurar datos del formulario
     setEditingProduct(product)
     setFormData({
       name: product.name || '',
@@ -223,11 +428,9 @@ const Products = () => {
       dimensions: product.dimensions || ''
     })
     
-    // Limpiar imágenes y mostrar modal
     clearImages()
     setShowModal(true)
     
-    // Cargar imágenes en segundo plano
     try {
       console.log('Obteniendo detalles completos del producto ID:', product.id)
       const productDetails = await apiService.getProduct(product.id)
@@ -238,7 +441,6 @@ const Products = () => {
         
         const processedImages = productDetails.images
           .sort((a, b) => {
-            // Primero por is_primary, luego por sort_order
             if (a.is_primary && !b.is_primary) return -1
             if (!a.is_primary && b.is_primary) return 1
             return a.sort_order - b.sort_order
@@ -262,7 +464,6 @@ const Products = () => {
         
         console.log('Imágenes procesadas:', processedImages)
         
-        // Actualizar estado con pequeño delay para asegurar que el modal esté renderizado
         setTimeout(() => {
           setImages(processedImages)
           toast.success(`${processedImages.length} imágenes cargadas`)
@@ -334,32 +535,13 @@ const Products = () => {
     )
   }
 
-  // Funciones para gestión rápida de imágenes desde la lista
-  const handleQuickImageDelete = async (productId, imageId) => {
-    if (!window.confirm('¿Eliminar esta imagen?')) return
+  // Determinar si mostrar indicador de "buscando"
+  const showSearchIndicator = searching || (searchTerm && searchTerm.length >= 1 && searchTerm.length < 2)
 
-    try {
-      await apiService.deleteProductImage(productId, imageId)
-      toast.success('Imagen eliminada')
-      fetchProducts() // Recargar lista
-    } catch (error) {
-      console.error('Error deleting image:', error)
-      toast.error('Error al eliminar imagen')
-    }
-  }
+  // Verificar si hay filtros activos
+  const hasActiveFilters = searchTerm || filters.category || filters.status
 
-  const handleQuickSetPrimary = async (productId, imageId) => {
-    try {
-      await apiService.setPrimaryProductImage(productId, imageId)
-      toast.success('Imagen establecida como principal')
-      fetchProducts() // Recargar lista
-    } catch (error) {
-      console.error('Error setting primary image:', error)
-      toast.error('Error al establecer imagen principal')
-    }
-  }
-
-  if (loading) {
+  if (loading && !searching) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-[#eddacb]"></div>
@@ -376,9 +558,12 @@ const Products = () => {
           <p className="text-slate-600 text-lg">Gestiona tu inventario de productos</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
-          <button className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-4 lg:px-6 py-2 lg:py-3 rounded-xl font-semibold transition-all duration-200">
-            Exportar
-          </button>
+          {/* Botón de exportar con menú desplegable */}
+          <ExportMenu 
+            onExport={handleExport}
+            disabled={exporting || loading}
+            currentFilters={combinedFilters}
+          />
           <button 
             onClick={openCreateModal}
             className="bg-gradient-to-r from-[#eddacb] to-[#eddacb] hover:from-[#eddacb] hover:to-[#eddacb] text-slate-900 px-4 lg:px-6 py-2 lg:py-3 rounded-xl font-semibold flex items-center justify-center transition-all duration-200 shadow-lg"
@@ -389,6 +574,7 @@ const Products = () => {
         </div>
       </div>
 
+      {/* Resto del componente permanece igual... */}
       {/* Filters */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 lg:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -396,12 +582,35 @@ const Products = () => {
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar productos..."
+              placeholder="Buscar productos... (mín. 2 caracteres)"
               className="pl-10 block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb] transition-all duration-200"
-              value={filters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
+              value={searchTerm}
+              onChange={handleSearchChange}
             />
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center">
+              {showSearchIndicator && (
+                <div className="mr-2">
+                  {searchTerm.length < 2 ? (
+                    <span className="text-xs text-amber-600 font-medium">
+                      {searchTerm.length}/2
+                    </span>
+                  ) : (
+                    <div className="animate-spin h-4 w-4 border-2 border-slate-300 border-t-[#eddacb] rounded-full"></div>
+                  )}
+                </div>
+              )}
+              {searchTerm && (
+                <button
+                  onClick={clearSearch}
+                  className="text-slate-400 hover:text-slate-600"
+                  title="Limpiar búsqueda"
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
+          
           <select
             className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb] transition-all duration-200"
             value={filters.category}
@@ -412,6 +621,7 @@ const Products = () => {
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
+          
           <select
             className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb] transition-all duration-200"
             value={filters.status}
@@ -422,20 +632,83 @@ const Products = () => {
             <option value="inactive">Agotado</option>
             <option value="draft">En revisión</option>
           </select>
+          
           <button
-            onClick={() => {
-              setFilters({ search: '', category: '', status: '' })
-              setCurrentPage(1)
-            }}
+            onClick={clearAllFilters}
             className="px-4 py-3 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors duration-200"
           >
-            Limpiar
+            Limpiar Todo
           </button>
         </div>
+        
+        {/* Indicador de búsqueda mínima */}
+        {searchTerm && searchTerm.length > 0 && searchTerm.length < 2 && (
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-800">
+              💡 Escribe al menos 2 caracteres para buscar productos
+            </p>
+          </div>
+        )}
+        
+        {/* Indicador de filtros activos */}
+        {hasActiveFilters && (
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <div className="flex flex-wrap gap-2">
+              <span className="text-sm text-slate-600 font-medium">Filtros activos:</span>
+              {searchTerm && searchTerm.length >= 2 && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  Búsqueda: "{searchTerm}"
+                  <button
+                    onClick={clearSearch}
+                    className="ml-1 text-blue-600 hover:text-blue-800"
+                  >
+                    <XMarkIcon className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {filters.category && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Categoría: {categories.find(c => c.id == filters.category)?.name}
+                  <button
+                    onClick={() => handleFilterChange('category', '')}
+                    className="ml-1 text-green-600 hover:text-green-800"
+                  >
+                    <XMarkIcon className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {filters.status && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  Estado: {filters.status === 'active' ? 'Disponible' : filters.status === 'inactive' ? 'Agotado' : 'En revisión'}
+                  <button
+                    onClick={() => handleFilterChange('status', '')}
+                    className="ml-1 text-amber-600 hover:text-amber-800"
+                  >
+                    <XMarkIcon className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Products Grid/Table */}
+      {/* Products Grid/Table - El resto del código permanece igual */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        {/* Loading overlay mientras busca */}
+        {(loading || searching || exporting) && (
+          <div className="relative">
+            <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin h-5 w-5 border-2 border-slate-300 border-t-[#eddacb] rounded-full"></div>
+                <span className="text-sm text-slate-600">
+                  {exporting ? 'Exportando...' : searching ? 'Buscando...' : 'Cargando...'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mobile Cards */}
         <div className="lg:hidden divide-y divide-slate-200">
           {products.map((product) => (
@@ -648,20 +921,39 @@ const Products = () => {
       </div>
 
       {/* Empty State */}
-      {products.length === 0 && !loading && (
+      {products.length === 0 && !loading && !searching && (
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay productos</h3>
-          <p className="text-slate-600 mb-6">Comienza agregando tu primer producto</p>
-          <button 
-            onClick={openCreateModal}
-            className="bg-gradient-to-r from-[#eddacb] to-[#eddacb] hover:from-[#eddacb] hover:to-[#eddacb] text-slate-900 px-6 py-3 rounded-xl font-semibold"
-          >
-            Agregar Primer Producto
-          </button>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">
+            {hasActiveFilters ? 
+              'No se encontraron productos' : 
+              'No hay productos'
+            }
+          </h3>
+          <p className="text-slate-600 mb-6">
+            {hasActiveFilters ? 
+              'Intenta ajustar los filtros de búsqueda' : 
+              'Comienza agregando tu primer producto'
+            }
+          </p>
+          {!hasActiveFilters ? (
+            <button 
+              onClick={openCreateModal}
+              className="bg-gradient-to-r from-[#eddacb] to-[#eddacb] hover:from-[#eddacb] hover:to-[#eddacb] text-slate-900 px-6 py-3 rounded-xl font-semibold"
+            >
+              Agregar Primer Producto
+            </button>
+          ) : (
+            <button 
+              onClick={clearAllFilters}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold"
+            >
+              Limpiar Filtros
+            </button>
+          )}
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal - El resto del código del modal permanece igual */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
