@@ -11,375 +11,8 @@ import {
   ArrowsUpDownIcon
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
+import ImageUploader from '../components/ImageUploader'
 
-// Componente ImageUploader integrado
-const ImageUploader = ({ 
-  images = [], 
-  onImagesChange, 
-  maxImages = 7, 
-  maxSize = 10 * 1024 * 1024,
-  acceptedFormats = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-  className = ''
-}) => {
-  const [dragActive, setDragActive] = useState(false)
-  const [draggedIndex, setDraggedIndex] = useState(null)
-  const fileInputRef = useRef(null)
-
-  const validateFile = (file) => {
-    if (file.size > maxSize) {
-      toast.error(`${file.name} es muy grande. Máximo ${Math.round(maxSize / (1024 * 1024))}MB por imagen.`)
-      return false
-    }
-    
-    if (!acceptedFormats.includes(file.type)) {
-      toast.error(`${file.name} no es un formato válido. Use JPG, PNG, WEBP o GIF.`)
-      return false
-    }
-
-    return true
-  }
-
-  const handleFiles = (files) => {
-    const fileArray = Array.from(files)
-    
-    if (images.length + fileArray.length > maxImages) {
-      toast.error(`Solo puedes subir un máximo de ${maxImages} imágenes.`)
-      return
-    }
-
-    const validFiles = fileArray.filter(validateFile)
-    if (validFiles.length === 0) return
-
-    // Crear previews para los archivos válidos
-    const newImages = []
-    const promises = validFiles.map((file) => {
-      return new Promise((resolve) => {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          newImages.push({
-            file,
-            preview: e.target.result,
-            id: `new_${Date.now()}_${Math.random()}`,
-            name: file.name,
-            size: file.size,
-            isExisting: false
-          })
-          resolve()
-        }
-        reader.readAsDataURL(file)
-      })
-    })
-
-    Promise.all(promises).then(() => {
-      onImagesChange([...images, ...newImages])
-      if (validFiles.length > 0) {
-        toast.success(`${validFiles.length} imagen${validFiles.length > 1 ? 'es' : ''} agregada${validFiles.length > 1 ? 's' : ''}`)
-      }
-    })
-  }
-
-  const handleDrag = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }
-
-  const handleDrop = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFiles(e.dataTransfer.files)
-    }
-  }
-
-  const handleFileInput = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFiles(e.target.files)
-    }
-    e.target.value = ''
-  }
-
-  const removeImage = (imageId) => {
-    const imageToRemove = images.find(img => img.id === imageId)
-    const updatedImages = images.filter(img => img.id !== imageId)
-    onImagesChange(updatedImages)
-    
-    if (imageToRemove && imageToRemove.isExisting) {
-      toast.success(`Imagen existente marcada para eliminación`)
-    }
-  }
-
-  const handleDragStart = (e, index) => {
-    setDraggedIndex(index)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  const handleDragOver = (e, index) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null)
-  }
-
-  const handleDropReorder = (e, dropIndex) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    if (draggedIndex === null || draggedIndex === dropIndex) return
-
-    const updatedImages = [...images]
-    const draggedImage = updatedImages[draggedIndex]
-    
-    // Remover imagen de posición original
-    updatedImages.splice(draggedIndex, 1)
-    
-    // Insertar en nueva posición
-    updatedImages.splice(dropIndex, 0, draggedImage)
-    
-    onImagesChange(updatedImages)
-    setDraggedIndex(null)
-    
-    toast.success('Imágenes reordenadas')
-  }
-
-  const moveImage = (fromIndex, direction) => {
-    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1
-    
-    if (toIndex < 0 || toIndex >= images.length) return
-    
-    const updatedImages = [...images]
-    const imageToMove = updatedImages[fromIndex]
-    
-    updatedImages.splice(fromIndex, 1)
-    updatedImages.splice(toIndex, 0, imageToMove)
-    
-    onImagesChange(updatedImages)
-    toast.success('Imagen movida')
-  }
-
-  const setPrimaryImage = (index) => {
-    if (index === 0) return // Ya es primaria
-    
-    const updatedImages = [...images]
-    const imageToMakePrimary = updatedImages[index]
-    
-    // Mover a la primera posición
-    updatedImages.splice(index, 1)
-    updatedImages.unshift(imageToMakePrimary)
-    
-    onImagesChange(updatedImages)
-    toast.success('Imagen establecida como principal')
-  }
-
-  return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Área de carga */}
-      <div
-        className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${
-          dragActive 
-            ? 'border-[#eddacb] bg-amber-50' 
-            : 'border-slate-300 hover:border-[#eddacb]'
-        }`}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={handleFileInput}
-        />
-        
-        <div className="flex flex-col items-center">
-          {dragActive ? (
-            <CloudArrowUpIcon className="w-16 h-16 text-[#eddacb] mb-4" />
-          ) : (
-            <PhotoIcon className="w-16 h-16 text-slate-400 mb-4" />
-          )}
-          
-          <div>
-            <p className="text-lg font-medium text-slate-600 mb-1">
-              {dragActive 
-                ? 'Suelta las imágenes aquí' 
-                : images.length > 0 
-                  ? 'Agregar más imágenes' 
-                  : 'Agregar imágenes'
-              }
-            </p>
-            <p className="text-sm text-slate-500 mb-2">
-              Haz clic para seleccionar o arrastra archivos aquí
-            </p>
-            <p className="text-xs text-slate-400">
-              JPG, PNG, WEBP, GIF hasta {Math.round(maxSize / (1024 * 1024))}MB por imagen
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              Máximo {maxImages} imágenes ({images.length}/{maxImages})
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid de previews */}
-      {images.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {images.map((image, index) => (
-            <div 
-              key={image.id} 
-              className={`relative group rounded-xl overflow-hidden hover:shadow-md transition-all duration-200 border-2 ${
-                image.isExisting 
-                  ? 'bg-emerald-50 border-emerald-200' 
-                  : 'bg-white border-slate-200'
-              } ${draggedIndex === index ? 'opacity-50 scale-95' : ''}`}
-              draggable
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDragEnd={handleDragEnd}
-              onDrop={(e) => handleDropReorder(e, index)}
-            >
-              <img
-                src={image.preview}
-                alt={`Preview ${index + 1}`}
-                className="w-full h-32 object-cover"
-                onError={(e) => {
-                  console.error('Error loading image preview:', image.preview)
-                  e.target.style.display = 'none'
-                  e.target.nextElementSibling.style.display = 'flex'
-                }}
-              />
-              
-              {/* Fallback si la imagen no carga */}
-              <div className="w-full h-32 bg-slate-100 flex items-center justify-center text-slate-400" style={{ display: 'none' }}>
-                <PhotoIcon className="w-8 h-8" />
-              </div>
-              
-              {/* Overlay con controles */}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2">
-                {/* Botones de reordenamiento */}
-                <div className="flex items-center gap-1">
-                  {index > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        moveImage(index, 'up')
-                      }}
-                      className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-1 transition-colors duration-200"
-                      title="Mover hacia arriba"
-                    >
-                      <ArrowsUpDownIcon className="w-3 h-3 rotate-180" />
-                    </button>
-                  )}
-                  
-                  {index < images.length - 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        moveImage(index, 'down')
-                      }}
-                      className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-1 transition-colors duration-200"
-                      title="Mover hacia abajo"
-                    >
-                      <ArrowsUpDownIcon className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-                
-                {/* Botón hacer primaria */}
-                {index !== 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setPrimaryImage(index)
-                    }}
-                    className="bg-[#eddacb] hover:bg-[#ddc8b0] text-slate-900 text-xs px-2 py-1 rounded-full font-semibold transition-colors duration-200"
-                    title="Hacer imagen principal"
-                  >
-                    Principal
-                  </button>
-                )}
-                
-                {/* Botón eliminar */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removeImage(image.id)
-                  }}
-                  className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors duration-200"
-                  title="Eliminar imagen"
-                >
-                  <XMarkIcon className="w-3 h-3" />
-                </button>
-              </div>
-              
-              {/* Indicadores */}
-              <div className="absolute top-2 left-2 z-10 space-y-1">
-                {/* Indicador de imagen principal */}
-                {index === 0 && (
-                  <span className="bg-[#eddacb] text-slate-900 text-xs px-2 py-1 rounded-full font-semibold block">
-                    Principal
-                  </span>
-                )}
-                
-                {/* Indicador de imagen existente */}
-                {image.isExisting && (
-                  <span className="bg-emerald-500 text-white text-xs px-2 py-1 rounded-full font-semibold block">
-                    Existente
-                  </span>
-                )}
-              </div>
-              
-              {/* Indicador de orden */}
-              <div className="absolute top-2 right-2">
-                <span className="bg-slate-900/70 text-white text-xs px-2 py-1 rounded-full font-semibold">
-                  {index + 1}
-                </span>
-              </div>
-              
-              {/* Información del archivo */}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                <p className="text-white text-xs truncate">{image.name}</p>
-                <p className="text-white/80 text-xs">
-                  {image.size > 0 ? `${(image.size / 1024).toFixed(1)} KB` : 'Existente'}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      
-      {/* Mensaje de ayuda */}
-      {images.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-          <p className="text-sm text-amber-800">
-            <strong>Arrastra las imágenes para reordenarlas</strong> o usa los botones de flecha. 
-            La primera imagen será la principal. Haz clic en "Principal" para mover una imagen al inicio.
-            {images.some(img => img.isExisting) && (
-              <> Las imágenes con borde verde son existentes y se actualizarán en el servidor al guardar.</>
-            )}
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Componente principal Products
 const Products = () => {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
@@ -519,38 +152,18 @@ const Products = () => {
 
       let response
       if (editingProduct) {
-        // Si estamos editando, primero manejar el reordenamiento de imágenes existentes
-        if (images.some(img => img.isExisting)) {
-          try {
-            // Reordenar imágenes existentes
-            const imageIds = images
-              .filter(img => img.isExisting && img.imageId)
-              .map(img => img.imageId)
-            
-            if (imageIds.length > 1) {
-              await apiService.reorderProductImages(editingProduct.id, imageIds)
-              console.log('Images reordered successfully')
-            }
-
-            // Establecer imagen primaria si cambió
-            const currentPrimary = images.find((img, index) => index === 0 && img.isExisting)
-            if (currentPrimary && currentPrimary.imageId) {
-              await apiService.setPrimaryProductImage(editingProduct.id, currentPrimary.imageId)
-              console.log('Primary image set successfully')
-            }
-
-            // Eliminar imágenes marcadas para eliminación
-            for (const imageId of deletedImageIds) {
-              await apiService.deleteProductImage(editingProduct.id, imageId)
-              console.log('Image deleted successfully:', imageId)
-            }
-          } catch (reorderError) {
-            console.error('Error managing existing images:', reorderError)
-            // No fallar todo el proceso por errores de reordenamiento
-          }
-        }
-
+        // Actualizar producto básico
         response = await apiService.updateProduct(editingProduct.id, formDataToSend)
+        
+        // Gestionar imágenes avanzadas por separado
+        try {
+          await apiService.manageProductImages(editingProduct.id, images, deletedImageIds)
+          console.log('Images managed successfully')
+        } catch (imageError) {
+          console.error('Error managing images:', imageError)
+          toast.warning('Producto actualizado, pero hubo problemas con algunas imágenes')
+        }
+        
         toast.success('Producto actualizado correctamente')
       } else {
         response = await apiService.createProduct(formDataToSend)
@@ -719,6 +332,31 @@ const Products = () => {
         }}
       />
     )
+  }
+
+  // Funciones para gestión rápida de imágenes desde la lista
+  const handleQuickImageDelete = async (productId, imageId) => {
+    if (!window.confirm('¿Eliminar esta imagen?')) return
+
+    try {
+      await apiService.deleteProductImage(productId, imageId)
+      toast.success('Imagen eliminada')
+      fetchProducts() // Recargar lista
+    } catch (error) {
+      console.error('Error deleting image:', error)
+      toast.error('Error al eliminar imagen')
+    }
+  }
+
+  const handleQuickSetPrimary = async (productId, imageId) => {
+    try {
+      await apiService.setPrimaryProductImage(productId, imageId)
+      toast.success('Imagen establecida como principal')
+      fetchProducts() // Recargar lista
+    } catch (error) {
+      console.error('Error setting primary image:', error)
+      toast.error('Error al establecer imagen principal')
+    }
   }
 
   if (loading) {
@@ -1050,6 +688,8 @@ const Products = () => {
                     onImagesChange={handleImagesChange}
                     maxImages={7}
                     maxSize={10 * 1024 * 1024}
+                    productId={editingProduct?.id}
+                    mode={editingProduct ? 'edit' : 'create'}
                   />
                 </div>
 

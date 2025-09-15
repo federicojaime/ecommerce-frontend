@@ -9,9 +9,6 @@ import {
     ShieldCheckIcon,
     CurrencyDollarIcon,
     TruckIcon,
-    DevicePhoneMobileIcon,
-    EnvelopeIcon,
-    GlobeAltIcon,
     EyeIcon,
     EyeSlashIcon,
     CheckIcon,
@@ -20,14 +17,18 @@ import {
     InformationCircleIcon,
     ArrowDownTrayIcon,
     ArrowUpTrayIcon,
-    CloudArrowUpIcon
+    CloudArrowUpIcon,
+    PlayIcon,
+    CheckCircleIcon,
+    XCircleIcon,
+    ClockIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../context/AuthContext'
 import { settingsService } from '../services/settingsService'
 import toast from 'react-hot-toast'
 
 const Settings = () => {
-    const { user, updateUser } = useAuth()
+    const { user, changePassword, updateProfile } = useAuth()
     const [activeTab, setActiveTab] = useState('store')
     const [loading, setLoading] = useState(false)
     const [initialLoading, setInitialLoading] = useState(true)
@@ -52,7 +53,7 @@ const Settings = () => {
     const [userData, setUserData] = useState({
         name: user?.name || '',
         email: user?.email || '',
-        phone: '',
+        phone: user?.phone || '',
         role: user?.role || ''
     })
 
@@ -88,9 +89,9 @@ const Settings = () => {
     })
 
     const [paymentData, setPaymentData] = useState({
-        mercadoPago: { enabled: false, accessToken: '', publicKey: '' },
+        mercadoPago: { enabled: false, accessToken: '', publicKey: '', sandboxMode: true },
         stripe: { enabled: false, secretKey: '', publishableKey: '' },
-        paypal: { enabled: false, clientId: '', clientSecret: '' }
+        paypal: { enabled: false, clientId: '', clientSecret: '', sandboxMode: true }
     })
 
     const [shippingData, setShippingData] = useState({
@@ -105,12 +106,25 @@ const Settings = () => {
     })
 
     const [stats, setStats] = useState(null)
+    const [paymentTestResults, setPaymentTestResults] = useState({})
 
     // Cargar configuraciones desde la API
     useEffect(() => {
         loadSettings()
         loadConfigurationStats()
     }, [])
+
+    // Actualizar datos del usuario cuando cambie el contexto
+    useEffect(() => {
+        if (user) {
+            setUserData({
+                name: user.name || '',
+                email: user.email || '',
+                phone: user.phone || '',
+                role: user.role || ''
+            })
+        }
+    }, [user])
 
     const loadSettings = async () => {
         setInitialLoading(true)
@@ -127,7 +141,7 @@ const Settings = () => {
             toast.success('Configuraciones cargadas')
         } catch (error) {
             console.error('Error loading settings:', error)
-            toast.error('Error al cargar configuraciones')
+            toast.error('Error al cargar configuraciones. Usando valores por defecto.')
         } finally {
             setInitialLoading(false)
         }
@@ -154,15 +168,11 @@ const Settings = () => {
                 shipping: shippingData
             }
 
-            // Validar configuraciones antes de guardar
-            const validation = await settingsService.validateSettings(settings)
-            if (!validation.valid) {
-                validation.errors.forEach(error => toast.error(error))
-                return
-            }
-
             await settingsService.saveSettings(settings)
             toast.success('Configuración guardada correctamente')
+            
+            // Recargar estadísticas
+            await loadConfigurationStats()
         } catch (error) {
             console.error('Error saving settings:', error)
             toast.error(error.message || 'Error al guardar configuración')
@@ -184,7 +194,7 @@ const Settings = () => {
 
         setLoading(true)
         try {
-            await settingsService.changePassword(passwordData.current, passwordData.new)
+            await changePassword(passwordData.current, passwordData.new)
             setPasswordData({ current: '', new: '', confirm: '' })
             toast.success('Contraseña cambiada correctamente')
         } catch (error) {
@@ -198,10 +208,7 @@ const Settings = () => {
     const handleProfileUpdate = async () => {
         setLoading(true)
         try {
-            const result = await settingsService.updateProfile(userData)
-            if (result.user && updateUser) {
-                updateUser(result.user)
-            }
+            await updateProfile(userData)
             toast.success('Perfil actualizado correctamente')
         } catch (error) {
             console.error('Error updating profile:', error)
@@ -246,11 +253,15 @@ const Settings = () => {
         }
 
         setLoading(true)
+        setPaymentTestResults(prev => ({ ...prev, [provider]: 'testing' }))
+
         try {
             await settingsService.testPaymentConnection(provider, credentials)
+            setPaymentTestResults(prev => ({ ...prev, [provider]: 'success' }))
             toast.success(`Conexión con ${provider} exitosa`)
         } catch (error) {
             console.error('Error testing payment connection:', error)
+            setPaymentTestResults(prev => ({ ...prev, [provider]: 'error' }))
             toast.error(`Error al conectar con ${provider}`)
         } finally {
             setLoading(false)
@@ -263,7 +274,7 @@ const Settings = () => {
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `configuraciones-${new Date().toISOString().split('T')[0]}.json`
+            a.download = `configuraciones-decohome-${new Date().toISOString().split('T')[0]}.json`
             document.body.appendChild(a)
             a.click()
             document.body.removeChild(a)
@@ -282,11 +293,37 @@ const Settings = () => {
         try {
             await settingsService.importSettings(file)
             await loadSettings() // Recargar configuraciones
-            toast.success('Configuraciones importadas')
+            toast.success('Configuraciones importadas correctamente')
         } catch (error) {
             console.error('Error importing settings:', error)
             toast.error('Error al importar configuraciones')
         }
+        
+        // Limpiar input
+        event.target.value = ''
+    }
+
+    const addShippingZone = () => {
+        setShippingData(prev => ({
+            ...prev,
+            shippingZones: [...prev.shippingZones, { name: '', cost: 0, time: '' }]
+        }))
+    }
+
+    const removeShippingZone = (index) => {
+        setShippingData(prev => ({
+            ...prev,
+            shippingZones: prev.shippingZones.filter((_, i) => i !== index)
+        }))
+    }
+
+    const updateShippingZone = (index, field, value) => {
+        setShippingData(prev => ({
+            ...prev,
+            shippingZones: prev.shippingZones.map((zone, i) => 
+                i === index ? { ...zone, [field]: value } : zone
+            )
+        }))
     }
 
     const tabs = [
@@ -299,6 +336,16 @@ const Settings = () => {
         { id: 'payment', label: 'Pagos', icon: CurrencyDollarIcon },
         { id: 'shipping', label: 'Envíos', icon: TruckIcon }
     ]
+
+    const getPaymentTestIcon = (provider) => {
+        const result = paymentTestResults[provider]
+        switch (result) {
+            case 'testing': return <ClockIcon className="w-4 h-4 text-blue-500 animate-spin" />
+            case 'success': return <CheckCircleIcon className="w-4 h-4 text-green-500" />
+            case 'error': return <XCircleIcon className="w-4 h-4 text-red-500" />
+            default: return <PlayIcon className="w-4 h-4" />
+        }
+    }
 
     const renderStoreSettings = () => (
         <div className="space-y-6">
@@ -382,7 +429,8 @@ const Settings = () => {
                         )}
                         <label className="cursor-pointer bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg px-6 py-4 hover:bg-blue-100 transition-colors">
                             <CloudArrowUpIcon className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                            <span className="text-sm text-blue-600">Subir logo</span>
+                            <span className="text-sm text-blue-600 block text-center">Subir logo</span>
+                            <span className="text-xs text-blue-500 block text-center mt-1">PNG, JPG, SVG (máx 5MB)</span>
                             <input
                                 type="file"
                                 className="hidden"
@@ -448,9 +496,16 @@ const Settings = () => {
                     <button
                         onClick={handleProfileUpdate}
                         disabled={loading}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                     >
-                        {loading ? 'Actualizando...' : 'Actualizar Perfil'}
+                        {loading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                                Actualizando...
+                            </>
+                        ) : (
+                            'Actualizar Perfil'
+                        )}
                     </button>
                 </div>
             </div>
@@ -536,9 +591,16 @@ const Settings = () => {
                         <button
                             onClick={handlePasswordChange}
                             disabled={loading || !passwordData.current || !passwordData.new || !passwordData.confirm}
-                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                         >
-                            {loading ? 'Cambiando...' : 'Cambiar Contraseña'}
+                            {loading ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                                    Cambiando...
+                                </>
+                            ) : (
+                                'Cambiar Contraseña'
+                            )}
                         </button>
                     </div>
 
@@ -632,13 +694,13 @@ const Settings = () => {
                     <h4 className="text-md font-medium text-gray-900 mb-3">Vista previa</h4>
                     <div className="border border-gray-200 rounded-lg p-4">
                         <div
-                            className="w-full h-20 rounded-lg flex items-center justify-center text-white font-semibold"
+                            className="w-full h-20 rounded-lg flex items-center justify-center text-white font-semibold mb-2"
                             style={{ backgroundColor: styleData.primaryColor }}
                         >
                             Color Primario
                         </div>
                         <div
-                            className="w-full h-12 rounded-lg mt-2 flex items-center justify-center text-white font-medium"
+                            className="w-full h-12 rounded-lg flex items-center justify-center text-white font-medium"
                             style={{ backgroundColor: styleData.secondaryColor }}
                         >
                             Color Secundario
@@ -741,156 +803,117 @@ const Settings = () => {
                             />
                         </button>
                     </div>
-                </div>
-            </div>
-        </div>
-    )
 
-    const renderPaymentSettings = () => (
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Métodos de Pago</h3>
-
-                <div className="space-y-6">
-                    {/* Mercado Pago */}
-                    <div className="border border-gray-200 rounded-lg p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center">
-                                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-                                    <span className="text-white font-bold text-sm">MP</span>
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-medium text-gray-900">Mercado Pago</h4>
-                                    <p className="text-sm text-gray-500">Acepta pagos con tarjetas y efectivo</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <button
-                                    onClick={() => testPaymentConnection('mercadoPago')}
-                                    disabled={!paymentData.mercadoPago.enabled || loading}
-                                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
-                                >
-                                    Probar
-                                </button>
-                                <button
-                                    onClick={() => setPaymentData(prev => ({
-                                        ...prev,
-                                        mercadoPago: { ...prev.mercadoPago, enabled: !prev.mercadoPago.enabled }
-                                    }))}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentData.mercadoPago.enabled ? 'bg-blue-600' : 'bg-gray-200'
-                                        }`}
-                                >
-                                    <span
-                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${paymentData.mercadoPago.enabled ? 'translate-x-6' : 'translate-x-1'
-                                            }`}
-                                    />
-                                </button>
-                            </div>
-                        </div>
-
-                        {paymentData.mercadoPago.enabled && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Access Token</label>
-                                    <input
-                                        type="password"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="TEST-..."
-                                        value={paymentData.mercadoPago.accessToken}
-                                        onChange={(e) => setPaymentData(prev => ({
-                                            ...prev,
-                                            mercadoPago: { ...prev.mercadoPago, accessToken: e.target.value }
-                                        }))}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Public Key</label>
-                                    <input
-                                        type="text"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="TEST-..."
-                                        value={paymentData.mercadoPago.publicKey}
-                                        onChange={(e) => setPaymentData(prev => ({
-                                            ...prev,
-                                            mercadoPago: { ...prev.mercadoPago, publicKey: e.target.value }
-                                        }))}
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Stripe */}
-                    <div className="border border-gray-200 rounded-lg p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center">
-                                <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
-                                    <span className="text-white font-bold text-sm">S</span>
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-medium text-gray-900">Stripe</h4>
-                                    <p className="text-sm text-gray-500">Pagos internacionales con tarjeta</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <button
-                                    onClick={() => testPaymentConnection('stripe')}
-                                    disabled={!paymentData.stripe.enabled || loading}
-                                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
-                                >
-                                    Probar
-                                </button>
-                                <button
-                                    onClick={() => setPaymentData(prev => ({
-                                        ...prev,
-                                        stripe: { ...prev.stripe, enabled: !prev.stripe.enabled }
-                                    }))}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentData.stripe.enabled ? 'bg-purple-600' : 'bg-gray-200'
-                                        }`}
-                                >
-                                    <span
-                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${paymentData.stripe.enabled ? 'translate-x-6' : 'translate-x-1'
-                                            }`}
-                                    />
-                                </button>
-                            </div>
-                        </div>
-
-                        {paymentData.stripe.enabled && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Secret Key</label>
-                                    <input
-                                        type="password"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="sk_test_..."
-                                        value={paymentData.stripe.secretKey}
-                                        onChange={(e) => setPaymentData(prev => ({
-                                            ...prev,
-                                            stripe: { ...prev.stripe, secretKey: e.target.value }
-                                        }))}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Publishable Key</label>
-                                    <input
-                                        type="text"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="pk_test_..."
-                                        value={paymentData.stripe.publishableKey}
-                                        onChange={(e) => setPaymentData(prev => ({
-                                            ...prev,
-                                            stripe: { ...prev.stripe, publishableKey: e.target.value }
-                                        }))}
-                                    />
-                                </div>
-                            </div>
-                        )}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Expiración de contraseña (días)
+                        </label>
+                        <select
+                            className="w-full md:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            value={securityData.passwordExpiry}
+                            onChange={(e) => setSecurityData(prev => ({ ...prev, passwordExpiry: parseInt(e.target.value) }))}
+                        >
+                            <option value={30}>30 días</option>
+                            <option value={60}>60 días</option>
+                            <option value={90}>90 días</option>
+                            <option value={180}>180 días</option>
+                            <option value={365}>1 año</option>
+                        </select>
                     </div>
                 </div>
             </div>
         </div>
     )
+
+    const renderPaymentSettings = () => {
+        const providers = settingsService.getPaymentProviders()
+        
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Métodos de Pago</h3>
+
+                    <div className="space-y-6">
+                        {providers.map((provider) => (
+                            <div key={provider.id} className="border border-gray-200 rounded-lg p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center">
+                                        <div className={`w-10 h-10 bg-${provider.color}-500 rounded-lg flex items-center justify-center mr-3`}>
+                                            <span className="text-white font-bold text-sm">{provider.icon}</span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-900">{provider.name}</h4>
+                                            <p className="text-sm text-gray-500">{provider.description}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <button
+                                            onClick={() => testPaymentConnection(provider.id)}
+                                            disabled={!paymentData[provider.id]?.enabled || loading}
+                                            className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 flex items-center space-x-1"
+                                        >
+                                            {getPaymentTestIcon(provider.id)}
+                                            <span>Probar</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setPaymentData(prev => ({
+                                                ...prev,
+                                                [provider.id]: { ...prev[provider.id], enabled: !prev[provider.id]?.enabled }
+                                            }))}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentData[provider.id]?.enabled ? `bg-${provider.color}-600` : 'bg-gray-200'
+                                                }`}
+                                        >
+                                            <span
+                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${paymentData[provider.id]?.enabled ? 'translate-x-6' : 'translate-x-1'
+                                                    }`}
+                                            />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {paymentData[provider.id]?.enabled && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {provider.fields.map((field) => (
+                                            <div key={field.key}>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    {field.label} {field.required && '*'}
+                                                </label>
+                                                {field.type === 'boolean' ? (
+                                                    <div className="flex items-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            checked={paymentData[provider.id]?.[field.key] || false}
+                                                            onChange={(e) => setPaymentData(prev => ({
+                                                                ...prev,
+                                                                [provider.id]: { ...prev[provider.id], [field.key]: e.target.checked }
+                                                            }))}
+                                                        />
+                                                        <span className="ml-2 text-sm text-gray-600">{field.label}</span>
+                                                    </div>
+                                                ) : (
+                                                    <input
+                                                        type={field.type}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        placeholder={field.type === 'password' ? '••••••••' : `Ingresa tu ${field.label.toLowerCase()}`}
+                                                        value={paymentData[provider.id]?.[field.key] || ''}
+                                                        onChange={(e) => setPaymentData(prev => ({
+                                                            ...prev,
+                                                            [provider.id]: { ...prev[provider.id], [field.key]: e.target.value }
+                                                        }))}
+                                                    />
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     const renderShippingSettings = () => (
         <div className="space-y-6">
@@ -952,21 +975,26 @@ const Settings = () => {
                     </div>
 
                     <div>
-                        <h4 className="text-md font-medium text-gray-900 mb-3">Zonas de Envío</h4>
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-md font-medium text-gray-900">Zonas de Envío</h4>
+                            <button
+                                type="button"
+                                onClick={addShippingZone}
+                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            >
+                                Agregar Zona
+                            </button>
+                        </div>
                         <div className="space-y-3">
                             {shippingData.shippingZones.map((zone, index) => (
-                                <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg">
+                                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-gray-200 rounded-lg">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Zona</label>
                                         <input
                                             type="text"
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                             value={zone.name}
-                                            onChange={(e) => {
-                                                const newZones = [...shippingData.shippingZones]
-                                                newZones[index].name = e.target.value
-                                                setShippingData(prev => ({ ...prev, shippingZones: newZones }))
-                                            }}
+                                            onChange={(e) => updateShippingZone(index, 'name', e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -977,11 +1005,7 @@ const Settings = () => {
                                                 type="number"
                                                 className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                 value={zone.cost}
-                                                onChange={(e) => {
-                                                    const newZones = [...shippingData.shippingZones]
-                                                    newZones[index].cost = parseInt(e.target.value) || 0
-                                                    setShippingData(prev => ({ ...prev, shippingZones: newZones }))
-                                                }}
+                                                onChange={(e) => updateShippingZone(index, 'cost', parseInt(e.target.value) || 0)}
                                             />
                                         </div>
                                     </div>
@@ -991,12 +1015,17 @@ const Settings = () => {
                                             type="text"
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                             value={zone.time}
-                                            onChange={(e) => {
-                                                const newZones = [...shippingData.shippingZones]
-                                                newZones[index].time = e.target.value
-                                                setShippingData(prev => ({ ...prev, shippingZones: newZones }))
-                                            }}
+                                            onChange={(e) => updateShippingZone(index, 'time', e.target.value)}
                                         />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <button
+                                            type="button"
+                                            onClick={() => removeShippingZone(index)}
+                                            className="w-full px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+                                        >
+                                            Eliminar
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -1024,7 +1053,7 @@ const Settings = () => {
     if (initialLoading) {
         return (
             <div className="flex items-center justify-center min-h-96">
-                <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-600 border-t-transparent"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#eddacb] border-t-transparent"></div>
             </div>
         )
     }

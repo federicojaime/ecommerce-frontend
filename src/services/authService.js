@@ -92,6 +92,7 @@ api.interceptors.response.use(
 )
 
 export const authService = {
+  // ===== MÉTODOS EXISTENTES =====
   login: async (email, password) => {
     try {
       console.log('Attempting login for:', email)
@@ -129,10 +130,141 @@ export const authService = {
     }
   },
 
+  // ===== NUEVOS MÉTODOS IMPLEMENTADOS =====
+
+  /**
+   * Registro de nuevo usuario
+   */
   register: async (userData) => {
-    const response = await api.post('/auth/register', userData)
-    return response.data
+    try {
+      console.log('Registering user:', { ...userData, password: '[HIDDEN]' })
+      
+      const response = await api.post('/auth/register', {
+        name: userData.name,
+        email: userData.email,
+        password: userData.password,
+        password_confirmation: userData.password_confirmation || userData.password,
+        role: userData.role || 'customer'
+      })
+      
+      console.log('Register response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Register error:', error.response?.data || error.message)
+      throw error
+    }
   },
+
+  /**
+   * Cambiar contraseña del usuario autenticado
+   */
+  changePassword: async (currentPassword, newPassword) => {
+    try {
+      console.log('Changing password...')
+      
+      const response = await api.put('/auth/change-password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirmation: newPassword
+      })
+      
+      console.log('Change password response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Change password error:', error.response?.data || error.message)
+      throw error
+    }
+  },
+
+  /**
+   * Actualizar perfil del usuario autenticado
+   */
+  updateProfile: async (profileData) => {
+    try {
+      console.log('Updating profile:', profileData)
+      
+      const response = await api.put('/auth/profile', {
+        name: profileData.name,
+        email: profileData.email,
+        phone: profileData.phone
+      })
+      
+      console.log('Update profile response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Update profile error:', error.response?.data || error.message)
+      throw error
+    }
+  },
+
+  /**
+   * Cerrar sesión
+   */
+  logout: async () => {
+    try {
+      console.log('Logging out...')
+      
+      const response = await api.post('/auth/logout')
+      
+      console.log('Logout response:', response.data)
+      
+      // Limpiar datos locales
+      localStorage.removeItem('token')
+      
+      return response.data
+    } catch (error) {
+      console.error('Logout error:', error.response?.data || error.message)
+      
+      // Limpiar datos locales incluso si el logout del servidor falla
+      localStorage.removeItem('token')
+      
+      throw error
+    }
+  },
+
+  /**
+   * Validar token actual
+   */
+  validateToken: async () => {
+    try {
+      console.log('Validating token...')
+      
+      const response = await api.get('/auth/validate-token')
+      
+      console.log('Validate token response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Validate token error:', error.response?.data || error.message)
+      
+      // Si el token no es válido, limpiar datos locales
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token')
+      }
+      
+      throw error
+    }
+  },
+
+  /**
+   * Verificar si hay un token almacenado
+   */
+  hasToken: () => {
+    return !!localStorage.getItem('token')
+  },
+
+  /**
+   * Obtener token actual
+   */
+  getToken: () => {
+    return localStorage.getItem('token')
+  },
+
+  /**
+   * Limpiar datos de autenticación
+   */
+  clearAuth: () => {
+    localStorage.removeItem('token')
+  }
 }
 
 export default api

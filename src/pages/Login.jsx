@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
@@ -157,6 +158,19 @@ const Login = () => {
               )}
             </button>
           </form>
+
+          {/* Link al registro */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-amber-200">
+              ¿No tienes cuenta?{' '}
+              <Link
+                to="/register"
+                className="font-semibold text-amber-300 hover:text-amber-100 transition-colors"
+              >
+                Regístrate aquí
+              </Link>
+            </p>
+          </div>
         </div>
 
         {/* Footer corto (no empuja) */}

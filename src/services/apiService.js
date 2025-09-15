@@ -1,4 +1,5 @@
 ﻿import api from './authService'
+import { productImageService } from './productImageService'
 
 export const apiService = {
   // Dashboard
@@ -108,61 +109,84 @@ export const apiService = {
     return response.data
   },
 
-  // ========== NUEVAS FUNCIONES PARA GESTIÓN DE IMÁGENES ==========
+  // ========== GESTIÓN AVANZADA DE IMÁGENES ==========
   
-  /**
-   * Eliminar imagen específica de un producto
-   * @param {number} productId - ID del producto
-   * @param {number} imageId - ID de la imagen
-   */
-  deleteProductImage: async (productId, imageId) => {
-    console.log(`Deleting image ${imageId} from product ${productId}`)
-    try {
-      const response = await api.delete(`/admin/products/${productId}/images/${imageId}`)
-      console.log('Delete image response:', response.data)
-      return response.data
-    } catch (error) {
-      console.error('Error deleting product image:', error.response?.data || error.message)
-      throw error
-    }
-  },
+  // Funciones directas (delegadas al productImageService)
+  deleteProductImage: productImageService.deleteImage,
+  reorderProductImages: productImageService.reorderImages,
+  setPrimaryProductImage: productImageService.setPrimaryImage,
+  getProductImages: productImageService.getProductImages,
+  uploadProductImages: productImageService.uploadImages,
+  updateProductImageInfo: productImageService.updateImageInfo,
+  optimizeProductImage: productImageService.optimizeImage,
+  getProductImageStats: productImageService.getImageStats,
 
-  /**
-   * Reordenar imágenes de un producto
-   * @param {number} productId - ID del producto
-   * @param {Array} imageIds - Array de IDs de imágenes en el nuevo orden
-   */
-  reorderProductImages: async (productId, imageIds) => {
-    console.log(`Reordering images for product ${productId}:`, imageIds)
+  // Función helper para gestión completa de imágenes en edición
+  manageProductImages: async (productId, images, deletedImageIds = []) => {
     try {
-      const response = await api.put(`/admin/products/${productId}/images/reorder`, {
-        image_ids: imageIds
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
+      console.log('Managing product images for product:', productId)
+      console.log('Current images:', images)
+      console.log('Deleted image IDs:', deletedImageIds)
+
+      const results = {
+        deleted: [],
+        reordered: false,
+        primarySet: false,
+        uploaded: []
+      }
+
+      // 1. Eliminar imágenes marcadas para eliminación
+      for (const imageId of deletedImageIds) {
+        try {
+          await productImageService.deleteImage(productId, imageId)
+          results.deleted.push(imageId)
+          console.log('Image deleted successfully:', imageId)
+        } catch (error) {
+          console.error('Error deleting image:', imageId, error)
         }
-      })
-      console.log('Reorder images response:', response.data)
-      return response.data
-    } catch (error) {
-      console.error('Error reordering product images:', error.response?.data || error.message)
-      throw error
-    }
-  },
+      }
 
-  /**
-   * Establecer imagen primaria de un producto
-   * @param {number} productId - ID del producto
-   * @param {number} imageId - ID de la imagen a establecer como primaria
-   */
-  setPrimaryProductImage: async (productId, imageId) => {
-    console.log(`Setting image ${imageId} as primary for product ${productId}`)
-    try {
-      const response = await api.put(`/admin/products/${productId}/images/${imageId}/primary`)
-      console.log('Set primary image response:', response.data)
-      return response.data
+      // 2. Reordenar imágenes existentes
+      const existingImages = images.filter(img => img.isExisting && img.imageId)
+      if (existingImages.length > 1) {
+        try {
+          const imageIds = existingImages.map(img => img.imageId)
+          await productImageService.reorderImages(productId, imageIds)
+          results.reordered = true
+          console.log('Images reordered successfully')
+        } catch (error) {
+          console.error('Error reordering images:', error)
+        }
+      }
+
+      // 3. Establecer imagen primaria si cambió
+      const primaryImage = images.find((img, index) => index === 0 && img.isExisting)
+      if (primaryImage && primaryImage.imageId) {
+        try {
+          await productImageService.setPrimaryImage(productId, primaryImage.imageId)
+          results.primarySet = true
+          console.log('Primary image set successfully')
+        } catch (error) {
+          console.error('Error setting primary image:', error)
+        }
+      }
+
+      // 4. Subir nuevas imágenes
+      const newImages = images.filter(img => img.isNew && img.file)
+      if (newImages.length > 0) {
+        try {
+          const files = newImages.map(img => img.file)
+          const uploadResponse = await productImageService.uploadImages(productId, files)
+          results.uploaded = uploadResponse.images || []
+          console.log('New images uploaded successfully')
+        } catch (error) {
+          console.error('Error uploading new images:', error)
+        }
+      }
+
+      return results
     } catch (error) {
-      console.error('Error setting primary image:', error.response?.data || error.message)
+      console.error('Error managing product images:', error)
       throw error
     }
   },
