@@ -10,7 +10,19 @@ module.exports = {
           700: '#0369a1',
         },
         secondary: {
-          500: '#eab308',
+          500: '#eddacb',
+        },
+        // Sobrescribir los colores amber
+        amber: {
+          50: '#fefcf7',
+          100: '#fdf4e7',
+          200: '#f9e5c3',
+          300: '#f5d5a0',
+          400: '#eddacb',  // Tu color principal
+          500: '#eddacb',  // Tu color principal
+          600: '#d4c4b0',
+          700: '#baac95',
+          800: '#a0967a',
         }
       }
     },

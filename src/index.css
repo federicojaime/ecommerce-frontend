@@ -260,7 +260,7 @@
   }
 
   .btn-primary {
-    @apply bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 focus:ring-amber-400;
+    @apply bg-gradient-to-r from-[#eddacb] to-yellow-500 hover:from-[#eddacb] hover:to-yellow-600 text-slate-900 shadow-lg shadow-[#eddacb]/25 hover:shadow-xl hover:shadow-[#eddacb]/30 focus:ring-[#eddacb];
   }
 
   .btn-secondary {
@@ -268,7 +268,7 @@
   }
 
   .btn-outline {
-    @apply border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shadow-sm focus:ring-amber-400;
+    @apply border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shadow-sm focus:ring-[#eddacb];
   }
 
   .btn-danger {
@@ -290,11 +290,11 @@
 
   /* Input fields */
   .input-field {
-    @apply block w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 transition-all duration-200 bg-white text-sm font-medium;
+    @apply block w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-[#eddacb]/50 focus:border-[#eddacb] transition-all duration-200 bg-white text-sm font-medium;
   }
 
   .input-search {
-    @apply block w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 transition-all duration-200 text-sm font-medium;
+    @apply block w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#eddacb]/50 focus:border-[#eddacb] transition-all duration-200 text-sm font-medium;
   }
 
   /* Status badges */
@@ -350,7 +350,7 @@
   }
 
   .nav-item-active {
-    @apply bg-amber-400/10 text-amber-400 shadow-lg shadow-amber-500/20;
+    @apply bg-[#eddacb]/10 text-[#eddacb] shadow-lg shadow-[#eddacb]/20;
   }
 
   .nav-item-inactive {
@@ -395,7 +395,7 @@
   }
 
   .hover-glow {
-    @apply transition-shadow duration-200 hover:shadow-lg hover:shadow-amber-500/25;
+    @apply transition-shadow duration-200 hover:shadow-lg hover:shadow-[#eddacb]/25;
   }
 
   .hover-scale {
@@ -404,7 +404,7 @@
 
   /* Loading states */
   .loading-spinner {
-    @apply animate-spin rounded-full border-4 border-slate-200 border-t-amber-400;
+    @apply animate-spin rounded-full border-4 border-slate-200 border-t-[#eddacb];
   }
 
   .loading-pulse {
@@ -413,7 +413,7 @@
 
   /* Focus states */
   .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:ring-offset-2;
+    @apply focus:outline-none focus:ring-2 focus:ring-[#eddacb]/50 focus:ring-offset-2;
   }
 
   /* Typography */
@@ -595,7 +595,7 @@
 }
 
 .progress-fill {
-  @apply h-full bg-gradient-to-r from-amber-400 to-yellow-500 transition-all duration-300 ease-out;
+  @apply h-full bg-gradient-to-r from-[#eddacb] to-[#eddacb] transition-all duration-300 ease-out;
 }
 
 /* Enhanced border styles */
@@ -609,4 +609,11 @@
 ::selection {
   background-color: rgba(251, 191, 36, 0.3);
   color: #0F172A;
+}
+
+.btn-primary {
+  background: linear-gradient(to right, #eddacb, #eddacb);
+  @apply hover:brightness-90 text-slate-900 shadow-lg hover:shadow-xl focus:ring-2;
+  box-shadow: 0 10px 15px -3px rgba(237, 218, 203, 0.25);
+  focus-ring-color: #eddacb;
 }

@@ -94,7 +94,7 @@ const Sidebar = () => {
                   className={({ isActive }) =>
                     `group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 relative ${
                       isActive
-                        ? 'bg-amber-400/15 text-amber-400 shadow-lg shadow-amber-500/25'
+                        ? 'bg-[#eddacb]/15 text-[#eddacb] shadow-lg shadow-[#eddacb]/25'
                         : 'text-slate-200 hover:text-white hover:bg-white/10'
                     }`
                   }
@@ -103,11 +103,11 @@ const Sidebar = () => {
                     <>
                       {/* Indicador activo - línea dorada */}
                       {isActive && (
-                        <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-10 bg-gradient-to-b from-amber-400 to-yellow-500 rounded-r-full shadow-lg shadow-amber-500/40" />
+                        <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-10 bg-gradient-to-b from-[#eddacb] to-[#eddacb] rounded-r-full shadow-lg shadow-[#eddacb]/40" />
                       )}
                       <item.icon
                         className={`mr-4 flex-shrink-0 h-6 w-6 transition-colors duration-200 ${
-                          isActive ? 'text-amber-400' : 'text-slate-300 group-hover:text-white'
+                          isActive ? 'text-[#eddacb]' : 'text-slate-300 group-hover:text-white'
                         }`}
                         aria-hidden="true"
                       />
@@ -133,7 +133,7 @@ const Sidebar = () => {
                     aria-hidden="true"
                   />
                   <span className="truncate font-medium">{item.name}</span>
-                  <span className="ml-auto text-xs bg-amber-400/20 text-amber-300 px-2 py-1 rounded-full">
+                  <span className="ml-auto text-xs bg-[#eddacb]/20 text-amber-300 px-2 py-1 rounded-full">
                     Próximamente
                   </span>
                 </div>
@@ -144,7 +144,7 @@ const Sidebar = () => {
           {/* User Info - Solo en móvil */}
           <div className="mx-4 mb-4 p-3 bg-black/20 rounded-xl border border-white/10 lg:hidden">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-lg flex items-center justify-center shadow-lg">
+              <div className="w-8 h-8 bg-gradient-to-br from-[#eddacb] to-[#eddacb] rounded-lg flex items-center justify-center shadow-lg">
                 <span className="text-slate-900 font-bold text-xs">
                   {user?.name?.charAt(0)?.toUpperCase()}
                 </span>

@@ -7,7 +7,8 @@ import {
   MagnifyingGlassIcon, 
   PhotoIcon, 
   XMarkIcon,
-  CloudArrowUpIcon
+  CloudArrowUpIcon,
+  ArrowsUpDownIcon
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
@@ -15,12 +16,13 @@ import toast from 'react-hot-toast'
 const ImageUploader = ({ 
   images = [], 
   onImagesChange, 
-  maxImages = 5, 
+  maxImages = 7, 
   maxSize = 10 * 1024 * 1024,
   acceptedFormats = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
   className = ''
 }) => {
   const [dragActive, setDragActive] = useState(false)
+  const [draggedIndex, setDraggedIndex] = useState(null)
   const fileInputRef = useRef(null)
 
   const validateFile = (file) => {
@@ -57,9 +59,10 @@ const ImageUploader = ({
           newImages.push({
             file,
             preview: e.target.result,
-            id: Date.now() + Math.random(),
+            id: `new_${Date.now()}_${Math.random()}`,
             name: file.name,
-            size: file.size
+            size: file.size,
+            isExisting: false
           })
           resolve()
         }
@@ -103,16 +106,77 @@ const ImageUploader = ({
   }
 
   const removeImage = (imageId) => {
+    const imageToRemove = images.find(img => img.id === imageId)
     const updatedImages = images.filter(img => img.id !== imageId)
     onImagesChange(updatedImages)
+    
+    if (imageToRemove && imageToRemove.isExisting) {
+      toast.success(`Imagen existente marcada para eliminación`)
+    }
   }
 
-  const reorderImages = (dragIndex, dropIndex) => {
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+  }
+
+  const handleDropReorder = (e, dropIndex) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) return
+
     const updatedImages = [...images]
-    const draggedImage = updatedImages[dragIndex]
-    updatedImages.splice(dragIndex, 1)
+    const draggedImage = updatedImages[draggedIndex]
+    
+    // Remover imagen de posición original
+    updatedImages.splice(draggedIndex, 1)
+    
+    // Insertar en nueva posición
     updatedImages.splice(dropIndex, 0, draggedImage)
+    
     onImagesChange(updatedImages)
+    setDraggedIndex(null)
+    
+    toast.success('Imágenes reordenadas')
+  }
+
+  const moveImage = (fromIndex, direction) => {
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1
+    
+    if (toIndex < 0 || toIndex >= images.length) return
+    
+    const updatedImages = [...images]
+    const imageToMove = updatedImages[fromIndex]
+    
+    updatedImages.splice(fromIndex, 1)
+    updatedImages.splice(toIndex, 0, imageToMove)
+    
+    onImagesChange(updatedImages)
+    toast.success('Imagen movida')
+  }
+
+  const setPrimaryImage = (index) => {
+    if (index === 0) return // Ya es primaria
+    
+    const updatedImages = [...images]
+    const imageToMakePrimary = updatedImages[index]
+    
+    // Mover a la primera posición
+    updatedImages.splice(index, 1)
+    updatedImages.unshift(imageToMakePrimary)
+    
+    onImagesChange(updatedImages)
+    toast.success('Imagen establecida como principal')
   }
 
   return (
@@ -121,8 +185,8 @@ const ImageUploader = ({
       <div
         className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${
           dragActive 
-            ? 'border-amber-400 bg-amber-50' 
-            : 'border-slate-300 hover:border-amber-400'
+            ? 'border-[#eddacb] bg-amber-50' 
+            : 'border-slate-300 hover:border-[#eddacb]'
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -141,7 +205,7 @@ const ImageUploader = ({
         
         <div className="flex flex-col items-center">
           {dragActive ? (
-            <CloudArrowUpIcon className="w-16 h-16 text-amber-500 mb-4" />
+            <CloudArrowUpIcon className="w-16 h-16 text-[#eddacb] mb-4" />
           ) : (
             <PhotoIcon className="w-16 h-16 text-slate-400 mb-4" />
           )}
@@ -174,47 +238,111 @@ const ImageUploader = ({
           {images.map((image, index) => (
             <div 
               key={image.id} 
-              className="relative group bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow duration-200"
+              className={`relative group rounded-xl overflow-hidden hover:shadow-md transition-all duration-200 border-2 ${
+                image.isExisting 
+                  ? 'bg-emerald-50 border-emerald-200' 
+                  : 'bg-white border-slate-200'
+              } ${draggedIndex === index ? 'opacity-50 scale-95' : ''}`}
               draggable
-              onDragStart={(e) => e.dataTransfer.setData('text/plain', index.toString())}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault()
-                const dragIndex = parseInt(e.dataTransfer.getData('text/plain'))
-                if (dragIndex !== index) {
-                  reorderImages(dragIndex, index)
-                }
-              }}
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnd={handleDragEnd}
+              onDrop={(e) => handleDropReorder(e, index)}
             >
               <img
                 src={image.preview}
                 alt={`Preview ${index + 1}`}
                 className="w-full h-32 object-cover"
+                onError={(e) => {
+                  console.error('Error loading image preview:', image.preview)
+                  e.target.style.display = 'none'
+                  e.target.nextElementSibling.style.display = 'flex'
+                }}
               />
               
+              {/* Fallback si la imagen no carga */}
+              <div className="w-full h-32 bg-slate-100 flex items-center justify-center text-slate-400" style={{ display: 'none' }}>
+                <PhotoIcon className="w-8 h-8" />
+              </div>
+              
               {/* Overlay con controles */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2">
+                {/* Botones de reordenamiento */}
+                <div className="flex items-center gap-1">
+                  {index > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        moveImage(index, 'up')
+                      }}
+                      className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-1 transition-colors duration-200"
+                      title="Mover hacia arriba"
+                    >
+                      <ArrowsUpDownIcon className="w-3 h-3 rotate-180" />
+                    </button>
+                  )}
+                  
+                  {index < images.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        moveImage(index, 'down')
+                      }}
+                      className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-1 transition-colors duration-200"
+                      title="Mover hacia abajo"
+                    >
+                      <ArrowsUpDownIcon className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                
+                {/* Botón hacer primaria */}
+                {index !== 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPrimaryImage(index)
+                    }}
+                    className="bg-[#eddacb] hover:bg-[#ddc8b0] text-slate-900 text-xs px-2 py-1 rounded-full font-semibold transition-colors duration-200"
+                    title="Hacer imagen principal"
+                  >
+                    Principal
+                  </button>
+                )}
+                
+                {/* Botón eliminar */}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
                     removeImage(image.id)
                   }}
-                  className="bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-colors duration-200"
+                  className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors duration-200"
                   title="Eliminar imagen"
                 >
-                  <XMarkIcon className="w-4 h-4" />
+                  <XMarkIcon className="w-3 h-3" />
                 </button>
               </div>
               
-              {/* Indicador de imagen principal */}
-              {index === 0 && (
-                <div className="absolute top-2 left-2">
-                  <span className="bg-amber-400 text-slate-900 text-xs px-2 py-1 rounded-full font-semibold">
+              {/* Indicadores */}
+              <div className="absolute top-2 left-2 z-10 space-y-1">
+                {/* Indicador de imagen principal */}
+                {index === 0 && (
+                  <span className="bg-[#eddacb] text-slate-900 text-xs px-2 py-1 rounded-full font-semibold block">
                     Principal
                   </span>
-                </div>
-              )}
+                )}
+                
+                {/* Indicador de imagen existente */}
+                {image.isExisting && (
+                  <span className="bg-emerald-500 text-white text-xs px-2 py-1 rounded-full font-semibold block">
+                    Existente
+                  </span>
+                )}
+              </div>
               
               {/* Indicador de orden */}
               <div className="absolute top-2 right-2">
@@ -226,7 +354,9 @@ const ImageUploader = ({
               {/* Información del archivo */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                 <p className="text-white text-xs truncate">{image.name}</p>
-                <p className="text-white/80 text-xs">{(image.size / 1024).toFixed(1)} KB</p>
+                <p className="text-white/80 text-xs">
+                  {image.size > 0 ? `${(image.size / 1024).toFixed(1)} KB` : 'Existente'}
+                </p>
               </div>
             </div>
           ))}
@@ -237,10 +367,10 @@ const ImageUploader = ({
       {images.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <p className="text-sm text-amber-800">
-            {images.some(img => img.isExisting) ? (
-              <>Las imágenes con fondo verde son existentes. Solo puedes reordenar y eliminar las nuevas imágenes.</>
-            ) : (
-              <>Arrastra las imágenes para reordenarlas. La primera imagen será la principal.</>
+            <strong>Arrastra las imágenes para reordenarlas</strong> o usa los botones de flecha. 
+            La primera imagen será la principal. Haz clic en "Principal" para mover una imagen al inicio.
+            {images.some(img => img.isExisting) && (
+              <> Las imágenes con borde verde son existentes y se actualizarán en el servidor al guardar.</>
             )}
           </p>
         </div>
@@ -267,6 +397,7 @@ const Products = () => {
   
   // Estado para imágenes
   const [images, setImages] = useState([])
+  const [deletedImageIds, setDeletedImageIds] = useState([])
   
   const [formData, setFormData] = useState({
     name: '',
@@ -323,23 +454,38 @@ const Products = () => {
   }
 
   const handleImagesChange = (newImages) => {
+    console.log('Images changed:', newImages)
     setImages(newImages)
   }
 
   const getFiles = () => {
-    console.log('=== GETFILES DEBUGGING ===')
-    console.log('Images array:', images)
-    const files = images.map(img => img.file).filter(Boolean)
-    console.log('Extracted files:', files)
-    console.log('Files length:', files.length)
-    files.forEach((file, index) => {
-      console.log(`File ${index}:`, file.name, file.size, 'bytes', file.type)
-    })
+    const files = images.filter(img => !img.isExisting && img.file).map(img => img.file)
+    console.log('Getting files for upload:', files.length, 'new files')
     return files
   }
 
   const clearImages = () => {
     setImages([])
+    setDeletedImageIds([])
+  }
+
+  // Función para construir URLs de imágenes
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) {
+      return null
+    }
+    
+    // Si ya es una URL completa, devolverla como está
+    if (imagePath.startsWith('http')) {
+      return imagePath
+    }
+    
+    // Construir URL para XAMPP
+    const baseUrl = 'http://localhost/ecommerce-api/public'
+    const cleanPath = imagePath.replace(/^\/+/, '') // Remover barras al inicio
+    const fullUrl = `${baseUrl}/uploads/${cleanPath}`
+    
+    return fullUrl
   }
 
   const handleSubmit = async (e) => {
@@ -353,7 +499,6 @@ const Products = () => {
       Object.keys(formData).forEach(key => {
         const value = formData[key]
         if (value !== '' && value !== null && value !== undefined) {
-          // Convertir boolean a string para FormData
           if (typeof value === 'boolean') {
             formDataToSend.append(key, value ? '1' : '0')
           } else {
@@ -362,31 +507,55 @@ const Products = () => {
         }
       })
       
-      // Agregar imágenes si existen
-      const imageFiles = getFiles()
-      imageFiles.forEach((file, index) => {
-        if (index === 0) {
-          formDataToSend.append('image', file) // Primera imagen como principal
+      // Agregar solo archivos nuevos (no existentes)
+      const newImageFiles = getFiles()
+      newImageFiles.forEach((file, index) => {
+        if (index === 0 && !images.some(img => img.isExisting)) {
+          formDataToSend.append('image', file)
         } else {
-          formDataToSend.append('images[]', file) // Imágenes adicionales
+          formDataToSend.append('images[]', file)
         }
       })
 
-      console.log('Sending FormData with:')
-      for (let [key, value] of formDataToSend.entries()) {
-        console.log(key, ':', value instanceof File ? `File: ${value.name} (${value.size} bytes)` : value)
-      }
-
       let response
       if (editingProduct) {
+        // Si estamos editando, primero manejar el reordenamiento de imágenes existentes
+        if (images.some(img => img.isExisting)) {
+          try {
+            // Reordenar imágenes existentes
+            const imageIds = images
+              .filter(img => img.isExisting && img.imageId)
+              .map(img => img.imageId)
+            
+            if (imageIds.length > 1) {
+              await apiService.reorderProductImages(editingProduct.id, imageIds)
+              console.log('Images reordered successfully')
+            }
+
+            // Establecer imagen primaria si cambió
+            const currentPrimary = images.find((img, index) => index === 0 && img.isExisting)
+            if (currentPrimary && currentPrimary.imageId) {
+              await apiService.setPrimaryProductImage(editingProduct.id, currentPrimary.imageId)
+              console.log('Primary image set successfully')
+            }
+
+            // Eliminar imágenes marcadas para eliminación
+            for (const imageId of deletedImageIds) {
+              await apiService.deleteProductImage(editingProduct.id, imageId)
+              console.log('Image deleted successfully:', imageId)
+            }
+          } catch (reorderError) {
+            console.error('Error managing existing images:', reorderError)
+            // No fallar todo el proceso por errores de reordenamiento
+          }
+        }
+
         response = await apiService.updateProduct(editingProduct.id, formDataToSend)
         toast.success('Producto actualizado correctamente')
       } else {
         response = await apiService.createProduct(formDataToSend)
         toast.success('Producto creado correctamente')
       }
-
-      console.log('Server response:', response)
       
       setShowModal(false)
       setEditingProduct(null)
@@ -405,7 +574,6 @@ const Products = () => {
         errorMessage = error.message
       }
       
-      // Errores específicos
       if (error.code === 'ERR_NETWORK') {
         errorMessage = 'Error de conexión. Verifica que el servidor esté funcionando.'
       } else if (error.response?.status === 413) {
@@ -420,7 +588,11 @@ const Products = () => {
     }
   }
 
-  const handleEdit = (product) => {
+  const handleEdit = async (product) => {
+    console.log('=== INICIANDO EDICION ===')
+    console.log('Producto seleccionado:', product)
+    
+    // Configurar datos del formulario
     setEditingProduct(product)
     setFormData({
       name: product.name || '',
@@ -432,14 +604,64 @@ const Products = () => {
       stock: product.stock || '',
       min_stock: product.min_stock || '',
       status: product.status || 'active',
-      featured: product.featured || false,
+      featured: !!product.featured,
       category_id: product.category_id || '',
       weight: product.weight || '',
       dimensions: product.dimensions || ''
     })
-    // Limpiar imágenes para permitir agregar nuevas
+    
+    // Limpiar imágenes y mostrar modal
     clearImages()
     setShowModal(true)
+    
+    // Cargar imágenes en segundo plano
+    try {
+      console.log('Obteniendo detalles completos del producto ID:', product.id)
+      const productDetails = await apiService.getProduct(product.id)
+      console.log('Detalles recibidos:', productDetails)
+      
+      if (productDetails.images && productDetails.images.length > 0) {
+        console.log('Procesando', productDetails.images.length, 'imágenes')
+        
+        const processedImages = productDetails.images
+          .sort((a, b) => {
+            // Primero por is_primary, luego por sort_order
+            if (a.is_primary && !b.is_primary) return -1
+            if (!a.is_primary && b.is_primary) return 1
+            return a.sort_order - b.sort_order
+          })
+          .map((img, index) => {
+            const imageUrl = getImageUrl(img.image_path)
+            console.log(`Imagen ${index + 1}: ${img.image_path} -> ${imageUrl}`)
+            
+            return {
+              id: `existing_${img.id}`,
+              preview: imageUrl,
+              name: img.alt_text || product.name || `Imagen ${index + 1}`,
+              size: 0,
+              isExisting: true,
+              imageId: img.id,
+              imagePath: img.image_path,
+              isPrimary: img.is_primary === 1,
+              sortOrder: img.sort_order
+            }
+          })
+        
+        console.log('Imágenes procesadas:', processedImages)
+        
+        // Actualizar estado con pequeño delay para asegurar que el modal esté renderizado
+        setTimeout(() => {
+          setImages(processedImages)
+          toast.success(`${processedImages.length} imágenes cargadas`)
+        }, 200)
+      } else {
+        console.log('El producto no tiene imágenes')
+        toast.info('Este producto no tiene imágenes')
+      }
+    } catch (error) {
+      console.error('Error cargando imágenes:', error)
+      toast.error('Error al cargar las imágenes del producto')
+    }
   }
 
   const handleDelete = async (id) => {
@@ -480,26 +702,6 @@ const Products = () => {
     setShowModal(true)
   }
 
-  // Función mejorada para URLs de imágenes
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return null
-    
-    // Si ya es una URL completa, devolverla como está
-    if (imagePath.startsWith('http')) {
-      return imagePath
-    }
-    
-    // Construir URL base correcta para XAMPP
-    const baseUrl = 'http://localhost/ecommerce-api/public'
-    
-    // Limpiar la ruta de la imagen
-    const cleanPath = imagePath.replace(/^\/+/, '') // Remover barras al inicio
-    
-    // La ruta viene como "products/img_xxx.jpg" desde la API
-    // Necesitamos construir: http://localhost/ecommerce-api/public/uploads/products/img_xxx.jpg
-    return `${baseUrl}/uploads/${cleanPath}`
-  }
-
   const renderProductImage = (product) => {
     const imageUrl = getImageUrl(product.primary_image || product.image)
     
@@ -511,7 +713,7 @@ const Products = () => {
         alt={product.name}
         className="w-full h-full object-cover"
         onError={(e) => {
-          console.error('Error loading image:', imageUrl)
+          console.error('Error loading product image:', imageUrl)
           e.target.style.display = 'none'
           e.target.nextElementSibling.style.display = 'flex'
         }}
@@ -522,7 +724,7 @@ const Products = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-amber-400"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-[#eddacb]"></div>
       </div>
     )
   }
@@ -541,7 +743,7 @@ const Products = () => {
           </button>
           <button 
             onClick={openCreateModal}
-            className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 px-4 lg:px-6 py-2 lg:py-3 rounded-xl font-semibold flex items-center justify-center transition-all duration-200 shadow-lg"
+            className="bg-gradient-to-r from-[#eddacb] to-[#eddacb] hover:from-[#eddacb] hover:to-[#eddacb] text-slate-900 px-4 lg:px-6 py-2 lg:py-3 rounded-xl font-semibold flex items-center justify-center transition-all duration-200 shadow-lg"
           >
             <PlusIcon className="w-5 h-5 mr-2" />
             Agregar Producto
@@ -557,13 +759,13 @@ const Products = () => {
             <input
               type="text"
               placeholder="Buscar productos..."
-              className="pl-10 block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all duration-200"
+              className="pl-10 block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb] transition-all duration-200"
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
             />
           </div>
           <select
-            className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all duration-200"
+            className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb] transition-all duration-200"
             value={filters.category}
             onChange={(e) => handleFilterChange('category', e.target.value)}
           >
@@ -573,7 +775,7 @@ const Products = () => {
             ))}
           </select>
           <select
-            className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all duration-200"
+            className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb] transition-all duration-200"
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
           >
@@ -792,7 +994,7 @@ const Products = () => {
                         onClick={() => setCurrentPage(page)}
                         className={`relative inline-flex items-center px-4 py-2 border text-sm font-semibold ${
                           currentPage === page
-                            ? 'z-10 bg-amber-50 border-amber-500 text-amber-600'
+                            ? 'z-10 bg-amber-50 border-[#eddacb] text-[#eddacb]'
                             : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
                         } ${i === 0 ? 'rounded-l-xl' : ''} ${i === Math.min(5, totalPages) - 1 ? 'rounded-r-xl' : ''}`}
                       >
@@ -814,14 +1016,14 @@ const Products = () => {
           <p className="text-slate-600 mb-6">Comienza agregando tu primer producto</p>
           <button 
             onClick={openCreateModal}
-            className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 px-6 py-3 rounded-xl font-semibold"
+            className="bg-gradient-to-r from-[#eddacb] to-[#eddacb] hover:from-[#eddacb] hover:to-[#eddacb] text-slate-900 px-6 py-3 rounded-xl font-semibold"
           >
             Agregar Primer Producto
           </button>
         </div>
       )}
 
-      {/* Modal Mejorado */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -839,53 +1041,16 @@ const Products = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Sección de Imágenes con componente integrado */}
+                {/* Sección de Imágenes */}
                 <div className="bg-slate-50 rounded-xl p-6">
                   <h4 className="text-lg font-semibold text-slate-900 mb-4">Imágenes del producto</h4>
                   
-                  {/* Imagen existente al editar */}
-                  {editingProduct && (editingProduct.primary_image || editingProduct.image) && (
-                    <div className="mb-6">
-                      <p className="text-sm text-slate-600 mb-3">Imagen actual del producto:</p>
-                      <div className="relative inline-block">
-                        <img
-                          src={getImageUrl(editingProduct.primary_image || editingProduct.image)}
-                          alt="Imagen actual"
-                          className="w-32 h-32 object-cover rounded-xl border border-slate-200"
-                          onError={(e) => {
-                            e.target.style.display = 'none'
-                            e.target.nextElementSibling.style.display = 'flex'
-                          }}
-                        />
-                        <div className="w-32 h-32 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400" style={{ display: 'none' }}>
-                          <PhotoIcon className="w-8 h-8" />
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-2">
-                        Las nuevas imágenes se agregarán a las existentes
-                      </p>
-                    </div>
-                  )}
-
                   <ImageUploader
                     images={images}
                     onImagesChange={handleImagesChange}
-                    maxImages={5}
+                    maxImages={7}
                     maxSize={10 * 1024 * 1024}
                   />
-
-                  {/* DEBUG BUTTON - REMOVER DESPUÉS */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      console.log('=== DEBUG STATE ===')
-                      console.log('Current images state:', images)
-                      console.log('getFiles() result:', getFiles())
-                    }}
-                    className="mt-2 px-3 py-1 bg-red-500 text-white text-xs rounded"
-                  >
-                    DEBUG: Ver estado de imágenes
-                  </button>
                 </div>
 
                 {/* Información Básica */}
@@ -897,7 +1062,7 @@ const Products = () => {
                       <input
                         type="text"
                         required
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.name}
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                       />
@@ -907,7 +1072,7 @@ const Products = () => {
                       <input
                         type="text"
                         required
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.sku}
                         onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
                       />
@@ -915,7 +1080,7 @@ const Products = () => {
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-2">Categoría</label>
                       <select
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.category_id}
                         onChange={(e) => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
                       >
@@ -928,7 +1093,7 @@ const Products = () => {
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-2">Estado</label>
                       <select
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.status}
                         onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
                       >
@@ -950,7 +1115,7 @@ const Products = () => {
                         type="number"
                         step="0.01"
                         required
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.price}
                         onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                       />
@@ -960,7 +1125,7 @@ const Products = () => {
                       <input
                         type="number"
                         step="0.01"
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.sale_price}
                         onChange={(e) => setFormData(prev => ({ ...prev, sale_price: e.target.value }))}
                       />
@@ -969,7 +1134,7 @@ const Products = () => {
                       <label className="block text-sm font-semibold text-slate-700 mb-2">Stock</label>
                       <input
                         type="number"
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.stock}
                         onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
                       />
@@ -978,7 +1143,7 @@ const Products = () => {
                       <label className="block text-sm font-semibold text-slate-700 mb-2">Stock mínimo</label>
                       <input
                         type="number"
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.min_stock}
                         onChange={(e) => setFormData(prev => ({ ...prev, min_stock: e.target.value }))}
                       />
@@ -994,7 +1159,7 @@ const Products = () => {
                       <label className="block text-sm font-semibold text-slate-700 mb-2">Descripción corta</label>
                       <input
                         type="text"
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.short_description}
                         onChange={(e) => setFormData(prev => ({ ...prev, short_description: e.target.value }))}
                         placeholder="Breve descripción del producto"
@@ -1004,7 +1169,7 @@ const Products = () => {
                       <label className="block text-sm font-semibold text-slate-700 mb-2">Descripción completa</label>
                       <textarea
                         rows={4}
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.description}
                         onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                         placeholder="Descripción detallada del producto"
@@ -1022,7 +1187,7 @@ const Products = () => {
                       <input
                         type="number"
                         step="0.01"
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.weight}
                         onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
                         placeholder="0.00"
@@ -1032,7 +1197,7 @@ const Products = () => {
                       <label className="block text-sm font-semibold text-slate-700 mb-2">Dimensiones</label>
                       <input
                         type="text"
-                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        className="block w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#eddacb] focus:border-[#eddacb]"
                         value={formData.dimensions}
                         onChange={(e) => setFormData(prev => ({ ...prev, dimensions: e.target.value }))}
                         placeholder="Largo x Ancho x Alto"
@@ -1045,7 +1210,7 @@ const Products = () => {
                       <input
                         id="featured"
                         type="checkbox"
-                        className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 rounded"
+                        className="h-4 w-4 text-[#eddacb] focus:ring-[#eddacb] border-slate-300 rounded"
                         checked={formData.featured}
                         onChange={(e) => setFormData(prev => ({ ...prev, featured: e.target.checked }))}
                       />
@@ -1070,7 +1235,7 @@ const Products = () => {
                   <button
                     type="submit"
                     disabled={uploading}
-                    className="px-6 py-3 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 border border-transparent rounded-xl text-sm font-semibold text-slate-900 shadow-lg disabled:opacity-50 flex items-center justify-center"
+                    className="px-6 py-3 bg-gradient-to-r from-[#eddacb] to-[#eddacb] hover:from-[#eddacb] hover:to-[#eddacb] border border-transparent rounded-xl text-sm font-semibold text-slate-900 shadow-lg disabled:opacity-50 flex items-center justify-center"
                   >
                     {uploading ? (
                       <>

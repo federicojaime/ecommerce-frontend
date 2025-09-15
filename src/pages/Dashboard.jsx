@@ -38,8 +38,8 @@ const Dashboard = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="relative">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-amber-400"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-amber-400 animate-pulse"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-[#eddacb]"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#eddacb] animate-pulse"></div>
         </div>
       </div>
     )
@@ -49,11 +49,11 @@ const Dashboard = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center bg-white rounded-2xl p-8 shadow-lg border border-slate-200">
-          <ExclamationTriangleIcon className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <ExclamationTriangleIcon className="w-12 h-12 text-[#eddacb] mx-auto mb-4" />
           <p className="text-slate-600 font-medium">No se pudieron cargar las estadísticas</p>
           <button 
             onClick={() => window.location.reload()} 
-            className="mt-3 px-4 py-2 bg-amber-400 text-slate-900 rounded-lg font-medium hover:bg-amber-500 transition-colors"
+            className="mt-3 px-4 py-2 bg-[#eddacb] text-slate-900 rounded-lg font-medium hover:bg-[#eddacb] transition-colors"
           >
             Reintentar
           </button>
@@ -91,9 +91,9 @@ const Dashboard = () => {
       change: '+15.8%',
       changeType: 'increase',
       icon: ArrowTrendingUpIcon,
-      gradient: 'from-amber-400 to-yellow-500',
+      gradient: 'from-[#eddacb] to-[#eddacb]',
       bg: 'bg-amber-50',
-      iconColor: 'text-amber-600',
+      iconColor: 'text-[#eddacb]',
       count: 'este mes',
     },
     {
@@ -119,7 +119,7 @@ const Dashboard = () => {
           <h1 className="text-4xl font-bold text-slate-900 mb-2">Panel de Control</h1>
           <p className="text-slate-600 text-lg">Bienvenido de nuevo, aquí tienes el resumen de tu negocio</p>
         </div>
-        <button className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105">
+        <button className="bg-gradient-to-r from-[#eddacb] to-[#eddacb] hover:from-[#eddacb] hover:to-[#eddacb] text-slate-900 px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-[#eddacb]/25 hover:shadow-xl hover:shadow-[#eddacb]/30 hover:scale-105">
           Exportar Reporte
         </button>
       </div>
@@ -244,7 +244,7 @@ const Dashboard = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <div className="w-3 h-3 bg-amber-400 rounded-full mr-3"></div>
+                <div className="w-3 h-3 bg-[#eddacb] rounded-full mr-3"></div>
                 <span className="text-sm font-medium text-slate-700">Muebles</span>
               </div>
               <span className="text-sm font-bold text-slate-900">28%</span>

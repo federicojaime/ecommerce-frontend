@@ -108,6 +108,65 @@ export const apiService = {
     return response.data
   },
 
+  // ========== NUEVAS FUNCIONES PARA GESTIÓN DE IMÁGENES ==========
+  
+  /**
+   * Eliminar imagen específica de un producto
+   * @param {number} productId - ID del producto
+   * @param {number} imageId - ID de la imagen
+   */
+  deleteProductImage: async (productId, imageId) => {
+    console.log(`Deleting image ${imageId} from product ${productId}`)
+    try {
+      const response = await api.delete(`/admin/products/${productId}/images/${imageId}`)
+      console.log('Delete image response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error deleting product image:', error.response?.data || error.message)
+      throw error
+    }
+  },
+
+  /**
+   * Reordenar imágenes de un producto
+   * @param {number} productId - ID del producto
+   * @param {Array} imageIds - Array de IDs de imágenes en el nuevo orden
+   */
+  reorderProductImages: async (productId, imageIds) => {
+    console.log(`Reordering images for product ${productId}:`, imageIds)
+    try {
+      const response = await api.put(`/admin/products/${productId}/images/reorder`, {
+        image_ids: imageIds
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      console.log('Reorder images response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error reordering product images:', error.response?.data || error.message)
+      throw error
+    }
+  },
+
+  /**
+   * Establecer imagen primaria de un producto
+   * @param {number} productId - ID del producto
+   * @param {number} imageId - ID de la imagen a establecer como primaria
+   */
+  setPrimaryProductImage: async (productId, imageId) => {
+    console.log(`Setting image ${imageId} as primary for product ${productId}`)
+    try {
+      const response = await api.put(`/admin/products/${productId}/images/${imageId}/primary`)
+      console.log('Set primary image response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error setting primary image:', error.response?.data || error.message)
+      throw error
+    }
+  },
+
   // Categories
   getCategories: async () => {
     const response = await api.get('/categories')

@@ -66,8 +66,11 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Card azul (sin desbordes) */}
-        <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-blue-900 to-blue-800 p-6 sm:p-8 shadow-2xl ring-1 ring-slate-700/50 backdrop-blur-md w-full">
+        {/* Card azul pleno #2d3c5d */}
+        <div
+          className="rounded-3xl p-6 sm:p-8 shadow-2xl ring-1 ring-slate-700/50 backdrop-blur-md w-full"
+          style={{ backgroundColor: '#2d3c5d' }}
+        >
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email */}
             <div>
@@ -140,7 +143,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 px-4 py-3 text-slate-900 font-semibold shadow-lg shadow-amber-400/20 hover:shadow-amber-300/40 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-amber-300 transition disabled:opacity-60 disabled:hover:scale-100"
+              className="group relative inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#eddacb] to-[#eddacb] px-4 py-3 text-slate-900 font-semibold shadow-lg shadow-[#eddacb]/20 hover:shadow-amber-300/40 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-amber-300 transition disabled:opacity-60 disabled:hover:scale-100"
             >
               {loading ? (
                 <>

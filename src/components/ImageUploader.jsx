@@ -112,8 +112,8 @@ const ImageUploader = ({
       <div
         className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${
           dragActive 
-            ? 'border-amber-400 bg-amber-50' 
-            : 'border-slate-300 hover:border-amber-400'
+            ? 'border-[#eddacb] bg-amber-50' 
+            : 'border-slate-300 hover:border-[#eddacb]'
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -132,7 +132,7 @@ const ImageUploader = ({
         
         <div className="flex flex-col items-center">
           {dragActive ? (
-            <CloudArrowUpIcon className="w-16 h-16 text-amber-500 mb-4" />
+            <CloudArrowUpIcon className="w-16 h-16 text-[#eddacb] mb-4" />
           ) : (
             <PhotoIcon className="w-16 h-16 text-slate-400 mb-4" />
           )}
@@ -201,7 +201,7 @@ const ImageUploader = ({
               {/* Indicador de imagen principal */}
               {index === 0 && (
                 <div className="absolute top-2 left-2">
-                  <span className="bg-amber-400 text-slate-900 text-xs px-2 py-1 rounded-full font-semibold">
+                  <span className="bg-[#eddacb] text-slate-900 text-xs px-2 py-1 rounded-full font-semibold">
                     Principal
                   </span>
                 </div>
