@@ -40,11 +40,11 @@ const Settings = () => {
 
     // Estados para cada sección
     const [storeData, setStoreData] = useState({
-        name: 'Deco Home',
-        phone: '+54 11 4567-8900',
-        email: 'contacto@decohome.com',
-        address: 'Av. Corrientes 1234, CABA, Argentina',
-        description: 'Tu tienda de decoración y hogar',
+        name: '',
+        phone: '',
+        email: '',
+        address: '',
+        description: '',
         logo: null,
         currency: 'ARS',
         timezone: 'America/Argentina/Buenos_Aires'
@@ -141,7 +141,7 @@ const Settings = () => {
             toast.success('Configuraciones cargadas')
         } catch (error) {
             console.error('Error loading settings:', error)
-            toast.error('Error al cargar configuraciones. Usando valores por defecto.')
+            toast.error('Error al cargar configuraciones')
         } finally {
             setInitialLoading(false)
         }
@@ -175,7 +175,7 @@ const Settings = () => {
             await loadConfigurationStats()
         } catch (error) {
             console.error('Error saving settings:', error)
-            toast.error(error.message || 'Error al guardar configuración')
+            toast.error('Error al guardar configuración')
         } finally {
             setLoading(false)
         }
@@ -826,7 +826,43 @@ const Settings = () => {
     )
 
     const renderPaymentSettings = () => {
-        const providers = settingsService.getPaymentProviders()
+        const providers = [
+            {
+                id: 'mercadoPago',
+                name: 'Mercado Pago',
+                description: 'Acepta pagos con tarjetas y efectivo en Argentina',
+                icon: 'MP',
+                color: 'blue',
+                fields: [
+                    { key: 'accessToken', label: 'Access Token', type: 'password', required: true },
+                    { key: 'publicKey', label: 'Public Key', type: 'text', required: true },
+                    { key: 'sandboxMode', label: 'Modo Sandbox', type: 'boolean', required: false }
+                ]
+            },
+            {
+                id: 'stripe',
+                name: 'Stripe',
+                description: 'Pagos internacionales con tarjeta',
+                icon: 'S',
+                color: 'purple',
+                fields: [
+                    { key: 'secretKey', label: 'Secret Key', type: 'password', required: true },
+                    { key: 'publishableKey', label: 'Publishable Key', type: 'text', required: true }
+                ]
+            },
+            {
+                id: 'paypal',
+                name: 'PayPal',
+                description: 'Pagos con cuenta PayPal',
+                icon: 'PP',
+                color: 'yellow',
+                fields: [
+                    { key: 'clientId', label: 'Client ID', type: 'text', required: true },
+                    { key: 'clientSecret', label: 'Client Secret', type: 'password', required: true },
+                    { key: 'sandboxMode', label: 'Modo Sandbox', type: 'boolean', required: false }
+                ]
+            }
+        ]
         
         return (
             <div className="space-y-6">
